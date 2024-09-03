@@ -1,7 +1,7 @@
 # Capy Core
 
-[![PyPI - Version](https://img.shields.io/pypi/v/task-manager.svg)](https://pypi.org/project/task-manager)
-[![PyPI - Python Version](https://img.shields.io/pypi/pyversions/task-manager.svg)](https://pypi.org/project/task-manager)
+[![PyPI - Version](https://img.shields.io/pypi/v/capy-core.svg)](https://pypi.org/project/capy-core)
+[![PyPI - Python Version](https://img.shields.io/pypi/pyversions/capy-core.svg)](https://pypi.org/project/capy-core)
 
 This package provides the core functionalities for an API Rest.
 
@@ -40,9 +40,9 @@ This package provides the core functionalities for an API Rest.
 ## Installation
 
 ```console
-pip install capy-core
+pip install capy-core[django,pytest]
 ```
 
 ## License
 
-`task-manager` is distributed under the terms of the [LGPL 3.0](https://spdx.org/licenses/LGPL-3.0-or-later.html) license.
+`capy-core` is distributed under the terms of the [MIT](https://spdx.org/licenses/MIT.html) license.

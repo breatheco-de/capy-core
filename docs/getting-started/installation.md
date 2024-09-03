@@ -3,7 +3,7 @@
 You should install capyc with a few optional dependencies running:
 
 ```bash
-pip install capyc[django,pytest]
+pip install capy-core[django,pytest]
 ```
 
 ## Optional dependencies
