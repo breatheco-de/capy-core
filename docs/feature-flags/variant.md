@@ -10,7 +10,7 @@ It returns a handler to be used with `feature.add`, the provided function is use
 
 - name (`str`): toggle name.
 - frontend (`bool=True`): if true, it could be accessed using an API Rest.
-- default (`Optional[str]=None`): if it returns None, it use this value instead.
+- default (`Optional[str]=None`): if it returns None, it uses this value instead.
 
 ### Decorated function params
 
@@ -50,7 +50,7 @@ Get the result of the evaluation of the provided function, if None, get the defa
 
 - name (`str`): toggle name.
 - context (`dict[str, Any]={}`): function arguments.
-- default (`Optional[str]=None`): if it returns None, it use this value instead.
+- default (`Optional[str]=None`): if it returns None, it uses this value instead.
 
 ### Example
 
@@ -59,7 +59,7 @@ from capyc.core.managers import feature
 from yourapp.models import User
 
 
-# make sure that flags would have loaded previously.
+# make sure that flags have been loaded previously.
 variant1 = feature.get_variant("admissions.academy.brand-color", default="BLUE")
 
 user1 = User.objects.get(id=1)

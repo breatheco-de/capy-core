@@ -8,7 +8,7 @@ Exception that represents a payment error.
 - slug (`Optional[str]=None`): status code.
 - data (`Any=None`): data to be used as context.
 - queryset (`Optional[QuerySet]=None`): queryset related to this error.
-- silent (`bool=False`): if True, it return a error not showed to the user, and `slug` as `silent_code`.
+- silent (`bool=False`): if True, it returns an error not shown to the user, and `slug` as `silent_code`.
 
 ## Example
 

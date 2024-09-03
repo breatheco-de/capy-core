@@ -9,3 +9,15 @@ REST_FRAMEWORK = {
     ...
 }
 ```
+
+And this to your `conftest.py`.
+
+```py
+pytest_plugins = (
+    "capyc.pytest.core",
+    "capyc.pytest.newrelic",
+    "capyc.pytest.django",
+    "capyc.pytest.rest_framework",
+    "capyc.pytest.circuitbreaker",
+)
+```
