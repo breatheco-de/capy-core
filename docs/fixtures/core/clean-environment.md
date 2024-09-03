@@ -1,3 +1,3 @@
 # clean_environment
 
-It reset the environment before starting each test.
+It resets the environment before starting each test.
