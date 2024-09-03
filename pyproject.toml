@@ -1,0 +1,110 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "capy-core"
+dynamic = ["version"]
+description = ''
+readme = "README.md"
+requires-python = ">=3.11"
+license = "MIT"
+keywords = []
+authors = [{ name = "jefer94", email = "jdefreitaspinto@gmail.com" }]
+classifiers = [
+  "Development Status :: 5 - Production/Stable",
+  "Programming Language :: Python",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: Implementation :: CPython",
+  "Programming Language :: Python :: Implementation :: PyPy",
+  "Framework :: Django :: 4.2",
+  "Framework :: Django :: 5.0",
+  "License :: OSI Approved :: MIT License",
+  "Topic :: Software Development :: Libraries",
+]
+dependencies = []
+
+[project.urls]
+Documentation = "https://breatheco-de.github.io/capy-core/"
+Issues = "https://github.com/breatheco-de/capy-core/issues"
+Source = "https://github.com/breatheco-de/capy-core"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/capyc"]
+
+[tool.hatch.version]
+path = "src/capyc/__about__.py"
+
+[tool.hatch.envs.default]
+dependencies = [
+  "coverage[toml]>=6.5",
+  "pytest",
+  "black",
+  "pytest-django",
+  "circuitbreaker",
+  "mkdocs",
+  "mkdocs-material",
+  "faker",
+  "django",
+  "pytest-asyncio",
+  "asgiref",
+  "numpy",
+  "Pillow",
+  "pytz",
+  "adrf",
+  "psycopg2",
+]
+[tool.hatch.envs.default.scripts]
+test = "pytest {args:tests} --nomigrations --durations=1"
+test-cov = "coverage run -m pytest {args:tests} --nomigrations --durations=1"
+cov-report = ["- coverage combine", "coverage report"]
+cov = ["test-cov", "cov-report"]
+docs = "mkdocs serve --livereload"
+generate_docs = "mkdocs build"
+docs_deploy = "mkdocs gh-deploy -c"
+
+[[tool.hatch.envs.all.matrix]]
+python = ["3.11", "3.12"]
+
+[tool.hatch.envs.types]
+dependencies = ["mypy>=1.0.0"]
+[tool.hatch.envs.types.scripts]
+check = "mypy --install-types --non-interactive {args:src/capyc tests}"
+
+[tool.coverage.run]
+source_pkgs = ["capyc", "tests"]
+branch = true
+parallel = true
+omit = ["src/capyc/__about__.py"]
+
+[tool.coverage.paths]
+capyc = ["src/capyc", "*/capyc/src/capyc"]
+tests = ["tests", "*/capyc/tests"]
+
+[tool.coverage.report]
+exclude_lines = ["no cov", "if __name__ == .__main__.:", "if TYPE_CHECKING:"]
+
+[project.optional-dependencies]
+django = ["django", "djangorestframework", "adrf"]
+pytest = ["numpy", "Pillow", "pytz"]
+
+[tool.black]
+line-length = 120
+
+[tool.pytest.ini_options]
+django_debug_mode = true
+addopts = ["-p", "no:legacypath", "--tb=short"]
+DJANGO_SETTINGS_MODULE = "capyc.settings"
+# python_files = ["breathecode/**/*.tests.py", "breathecode/**/*.tests_*.py"]
+
+# [tool.pytest]
+# env =
+#     ENV=test
+
+filterwarnings = [
+  # faker is passing a naive datetime to django
+  "ignore::RuntimeWarning:django.db.models.fields.*",
+  "ignore::DeprecationWarning:pkg_resources.*",
+]
