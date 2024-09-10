@@ -3,7 +3,7 @@ import pytest
 __all__ = ["no_http_requests"]
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(autouse=True)
 def no_http_requests(monkeypatch: pytest.MonkeyPatch) -> None:
     from urllib3.connectionpool import HTTPConnectionPool
 
