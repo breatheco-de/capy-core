@@ -1,6 +1,9 @@
 import inspect
 import logging
+import os
 from typing import Any, Callable, Literal, Optional, Tuple, TypedDict, overload
+
+from dotenv import dotenv_values
 
 logger = logging.getLogger(__name__)
 __all__ = ["feature"]
@@ -16,6 +19,42 @@ class Meta(TypedDict):
     type: FeatureType
 
 
+FLAG_STARTS_WITH = "FLAG"
+FLAG_ENV_PREFIX = f"{FLAG_STARTS_WITH}_"
+
+
+class EnvLoader:
+    def __init_subclass__(cls) -> None:
+        cls._load_flags()
+
+    @classmethod
+    def _load_flags(cls) -> None:
+        path = os.getcwd() + "/.flags"
+        values = dotenv_values(path)
+
+        cls._path = path
+        cls._FLAGS = values
+
+
+class FlagEnv(EnvLoader):
+    @classmethod
+    def get(cls, key: str, default: Optional[str] = None) -> str | None:
+        return cls._FLAGS.get(key, default)
+
+    @classmethod
+    def set(cls, key: str, value: str) -> None:
+        cls._FLAGS[key] = str(value)
+
+    @classmethod
+    def delete(cls, key: str) -> None:
+        if key in cls._FLAGS:
+            del cls._FLAGS[key]
+
+    @classmethod
+    def set_default(cls, key: str, value: str) -> str | None:
+        return cls._FLAGS.setdefault(key, value)
+
+
 class Feature:
     _flags: dict[FeatureType, dict[str, Tuple[Callable[..., str | bool], list[str], Meta]]] = {
         "availability": {},
@@ -23,6 +62,9 @@ class Feature:
     }
     TRUE = ["true", "TRUE", "True", "1", "on", "ON"]
     FALSE = ["false", "FALSE", "False", "0", "off", "OFF"]
+    NONE = [None, ""]
+
+    flags = FlagEnv
 
     @classmethod
     def parameters(cls, fn: Callable) -> list[str]:
@@ -136,4 +178,5 @@ class Feature:
         return list(cls._flags.keys())
 
 
+# EnvLoader._load_flags()
 feature = Feature()

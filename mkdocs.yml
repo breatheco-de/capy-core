@@ -6,70 +6,73 @@ repo_url: https://github.com/breatheco-de/capy-core
 edit_uri: ""
 
 theme:
-    name: 'material'
-    palette:
-      - scheme: 'default'
-        media: '(prefers-color-scheme: light)'
-        toggle:
-          icon: 'material/lightbulb'
-          name: "Switch to dark mode"
-      - scheme: 'slate'
-        media: '(prefers-color-scheme: dark)'
-        primary: 'blue'
-        toggle:
-          icon: 'material/lightbulb-outline'
-          name: 'Switch to light mode'
-    features:
-        - navigation.sections
+  name: "material"
+  palette:
+    - scheme: "default"
+      media: "(prefers-color-scheme: light)"
+      toggle:
+        icon: "material/lightbulb"
+        name: "Switch to dark mode"
+    - scheme: "slate"
+      media: "(prefers-color-scheme: dark)"
+      primary: "blue"
+      toggle:
+        icon: "material/lightbulb-outline"
+        name: "Switch to light mode"
+  features:
+    - navigation.sections
 
 # this define the order of menu
 nav:
-    - "index.md"
-    - Getting started:
+  - "index.md"
+  - Getting started:
       - "getting-started/installation.md"
       - "getting-started/setup.md"
-    - i18n:
+  - i18n:
       - "i18n/translation.md"
-    - Feature Flags:
+  - Feature Flags:
       - "feature-flags/introduction.md"
       - "feature-flags/availability.md"
       - "feature-flags/variant.md"
-    - Exceptions:
+      - "feature-flags/flags-file.md"
+      - "feature-flags/reading-flags.md"
+  - Exceptions:
       - "exceptions/validation-exception.md"
       - "exceptions/payment-exception.md"
-    - Changelog:
+  - Changelog:
       - "changelog/v1.0.0.md"
-    - Fixtures:
+      - "changelog/v1.0.3.md"
+  - Fixtures:
       - circuitbreaker:
-        - "fixtures/circuitbreaker/dont-close-the-circuit.md"
+          - "fixtures/circuitbreaker/dont-close-the-circuit.md"
       - core:
-        - "fixtures/core/random.md"
-        - "fixtures/core/fake.md"
-        - "fixtures/core/format.md"
-        - "fixtures/core/image.md"
-        - "fixtures/core/no-http-requests.md"
+          - "fixtures/core/random.md"
+          - "fixtures/core/fake.md"
+          - "fixtures/core/format.md"
+          - "fixtures/core/image.md"
+          - "fixtures/core/no-http-requests.md"
       - django:
-        - "fixtures/django/database.md"
-        - "fixtures/django/signals.md"
-        - "fixtures/django/queryset.md"
-        - "fixtures/django/datetime.md"
-        - "fixtures/django/utc_now.md"
+          - "fixtures/django/database.md"
+          - "fixtures/django/signals.md"
+          - "fixtures/django/queryset.md"
+          - "fixtures/django/datetime.md"
+          - "fixtures/django/utc_now.md"
       - newrelic:
-        - "fixtures/newrelic/disable-new-relic.md"
-        - "fixtures/newrelic/disable-new-relic-prints.md"
+          - "fixtures/newrelic/disable-new-relic.md"
+          - "fixtures/newrelic/disable-new-relic-prints.md"
       - rest_framework:
-        - "fixtures/rest_framework/client.md"
-        - "fixtures/rest_framework/aclient.md"
+          - "fixtures/rest_framework/client.md"
+          - "fixtures/rest_framework/aclient.md"
 
 plugins:
-    - search
+  - search
 
 markdown_extensions:
-    - pymdownx.highlight:
-          anchor_linenums: true
-    - pymdownx.inlinehilite
-    - pymdownx.snippets
-    - pymdownx.superfences
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.superfences
 
 extra_css:
-    - css/custom.css
+  - css/custom.css

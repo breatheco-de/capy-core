@@ -4,8 +4,10 @@ from unittest.mock import PropertyMock
 
 import pytest
 
-from capyc.core.managers import feature
 import capyc.pytest as capy
+from capyc.core.managers import feature
+
+flags = feature.flags
 
 
 @pytest.fixture(autouse=True)
@@ -142,3 +144,33 @@ class TestVariant:
         monkeypatch.setenv("MY_ENV", "2")
         value = feature.get_variant("test.variant")
         assert value == "blue"
+
+
+class TestFlags:
+    def test_load_flags(self):
+        assert flags.get("FEATURE_A") == "true"
+        assert flags.get("FEATURE_B") == "false"
+        assert flags.get("VARIANT_X") == "beta"
+        assert flags.get("VARIANT_Y") == "stable"
+        assert flags.get("NEW_UI_ENABLED") == "true"
+        assert flags.get("EXPERIMENTAL_FEATURE") == "false"
+
+    def test_set_default_no_override(self):
+        assert flags.set_default("FEATURE_A", "false") == "true"
+        assert flags.get("FEATURE_A") == "true"
+
+    def test_set_default(self):
+        assert flags.set_default("FEATURE_C", "false") == "false"
+        assert flags.get("FEATURE_C") == "false"
+
+    def test_set(self):
+        assert flags.set("FEATURE_D", "true") == None
+        assert flags.get("FEATURE_D") == "true"
+
+    def test_delete(self):
+        assert flags.delete("FEATURE_A") == None
+        assert flags.get("FEATURE_A") == None
+
+    def test_delete_not_exists(self):
+        assert flags.delete("FEATURE_E") == None
+        assert flags.get("FEATURE_E") == None

@@ -55,6 +55,7 @@ dependencies = [
   "pytz",
   "adrf",
   "psycopg2",
+  'python-dotenv',
 ]
 [tool.hatch.envs.default.scripts]
 test = "pytest {args:tests} --nomigrations --durations=1"
