@@ -42,6 +42,7 @@ nav:
   - Changelog:
       - "changelog/v1.0.0.md"
       - "changelog/v1.0.3.md"
+      - "changelog/v1.1.0.md"
   - Fixtures:
       - circuitbreaker:
           - "fixtures/circuitbreaker/dont-close-the-circuit.md"
