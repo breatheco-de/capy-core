@@ -24,7 +24,9 @@ classifiers = [
   "License :: OSI Approved :: MIT License",
   "Topic :: Software Development :: Libraries",
 ]
-dependencies = []
+dependencies = [
+  "langcodes",
+]
 
 [project.urls]
 Documentation = "https://breatheco-de.github.io/capy-core/"
