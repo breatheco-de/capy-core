@@ -26,6 +26,7 @@ class ContentTypeSerializer(Serializer):
     }
     filters = ("app_label",)
     depth = 2
+    ttl = 2
 
 
 # duplicate
@@ -671,27 +672,6 @@ class TestFilter:
             serializer = PermissionSerializer(request=request)
 
             assert serializer.filter(id__in=[x.id for x in model.permission]) == {
-                "count": 0,
-                "first": "/permission?limit=20&offset=0",
-                "last": "/permission?limit=20&offset=0",
-                "next": None,
-                "previous": None,
-                "results": [],
-            }
-
-    # count + select
-    def test_permission__not_iexact__in(self, database: capy.Database, django_assert_num_queries, fake: capy.Fake):
-        model = database.create(permission=[{"name": fake.name().upper()} for _ in range(2)], group=2)
-
-        factory = APIRequestFactory()
-        request = factory.get(
-            f"/notes/547/?name!~={model.permission[0].name.lower()},{model.permission[1].name.lower()}"
-        )
-
-        with django_assert_num_queries(2) as captured:
-            serializer = PermissionSerializer(request=request)
-
-            assert serializer.filter(id__in=[x.id for x in model.permission]) == {
                 "count": 2,
                 "first": "/permission?limit=20&offset=0",
                 "last": "/permission?limit=20&offset=0",
@@ -707,6 +687,27 @@ class TestFilter:
                         "name": model.permission[1].name,
                     },
                 ],
+            }
+
+    # count + select
+    def test_permission__not_iexact__in(self, database: capy.Database, django_assert_num_queries, fake: capy.Fake):
+        model = database.create(permission=[{"name": fake.name().upper()} for _ in range(2)], group=2)
+
+        factory = APIRequestFactory()
+        request = factory.get(
+            f"/notes/547/?name!~={model.permission[0].name.lower()},{model.permission[1].name.lower()}"
+        )
+
+        with django_assert_num_queries(2) as captured:
+            serializer = PermissionSerializer(request=request)
+
+            assert serializer.filter(id__in=[x.id for x in model.permission]) == {
+                "count": 0,
+                "first": "/permission?limit=20&offset=0",
+                "last": "/permission?limit=20&offset=0",
+                "next": None,
+                "previous": None,
+                "results": [],
             }
 
     # count + select
@@ -964,6 +965,9 @@ class TestFilterM2M:
     # count + select
     def test_permission__exact(self, database: capy.Database, django_assert_num_queries):
         model = database.create(permission=2, group=2)
+        model.group[0].permissions.set([model.permission[0]])
+        model.group[1].permissions.set([model.permission[1]])
+
         factory = APIRequestFactory()
         request = factory.get(f"/notes/547/?groups.name={model.group[0].name}")
 
@@ -971,7 +975,7 @@ class TestFilterM2M:
             serializer = PermissionSerializer(request=request)
 
             assert serializer.filter(id__in=[x.id for x in model.permission]) == {
-                "count": 2,
+                "count": 1,
                 "first": "/permission?limit=20&offset=0",
                 "last": "/permission?limit=20&offset=0",
                 "next": None,
@@ -981,6 +985,28 @@ class TestFilterM2M:
                         "id": model.permission[0].id,
                         "name": model.permission[0].name,
                     },
+                ],
+            }
+
+    # count + select
+    def test_permission__not_exact(self, database: capy.Database, django_assert_num_queries):
+        model = database.create(permission=2, group=2)
+        model.group[0].permissions.set([model.permission[0]])
+        model.group[1].permissions.set([model.permission[1]])
+
+        factory = APIRequestFactory()
+        request = factory.get(f"/notes/547/?groups.name!={model.group[0].name}")
+
+        with django_assert_num_queries(2) as captured:
+            serializer = PermissionSerializer(request=request)
+
+            assert serializer.filter(id__in=[x.id for x in model.permission]) == {
+                "count": 1,
+                "first": "/permission?limit=20&offset=0",
+                "last": "/permission?limit=20&offset=0",
+                "next": None,
+                "previous": None,
+                "results": [
                     {
                         "id": model.permission[1].id,
                         "name": model.permission[1].name,
@@ -988,10 +1014,118 @@ class TestFilterM2M:
                 ],
             }
 
+    # count + select
     def test_permission__iexact(self, database: capy.Database, django_assert_num_queries, fake: capy.Fake):
         model = database.create(permission=2, group=[{"name": fake.name().upper()} for _ in range(2)])
+        model.group[0].permissions.set([model.permission[0]])
+        model.group[1].permissions.set([model.permission[1]])
+
         factory = APIRequestFactory()
         request = factory.get(f"/notes/547/?groups.name~={model.group[0].name.lower()}")
+
+        with django_assert_num_queries(2) as captured:
+            serializer = PermissionSerializer(request=request)
+
+            assert serializer.filter(id__in=[x.id for x in model.permission]) == {
+                "count": 1,
+                "first": "/permission?limit=20&offset=0",
+                "last": "/permission?limit=20&offset=0",
+                "next": None,
+                "previous": None,
+                "results": [
+                    {
+                        "id": model.permission[0].id,
+                        "name": model.permission[0].name,
+                    },
+                ],
+            }
+
+    # count + select
+    def test_permission__not_iexact(self, database: capy.Database, django_assert_num_queries, fake: capy.Fake):
+        model = database.create(permission=2, group=[{"name": fake.name().upper()} for _ in range(2)])
+        model.group[0].permissions.set([model.permission[0]])
+        model.group[1].permissions.set([model.permission[1]])
+
+        factory = APIRequestFactory()
+        request = factory.get(f"/notes/547/?groups.name!~={model.group[0].name.lower()}")
+
+        with django_assert_num_queries(2) as captured:
+            serializer = PermissionSerializer(request=request)
+
+            assert serializer.filter(id__in=[x.id for x in model.permission]) == {
+                "count": 1,
+                "first": "/permission?limit=20&offset=0",
+                "last": "/permission?limit=20&offset=0",
+                "next": None,
+                "previous": None,
+                "results": [
+                    {
+                        "id": model.permission[1].id,
+                        "name": model.permission[1].name,
+                    },
+                ],
+            }
+
+    # count + select
+    def test_permission__lookup(self, database: capy.Database, django_assert_num_queries, fake: capy.Fake):
+        model = database.create(permission=2, group=2)
+        model.group[0].permissions.set([model.permission[0]])
+        model.group[1].permissions.set([model.permission[1]])
+
+        factory = APIRequestFactory()
+        request = factory.get(f"/notes/547/?groups.name[startswith]={model.group[0].name[:3]}")
+
+        with django_assert_num_queries(2) as captured:
+            serializer = PermissionSerializer(request=request)
+
+            assert serializer.filter(id__in=[x.id for x in model.permission]) == {
+                "count": 1,
+                "first": "/permission?limit=20&offset=0",
+                "last": "/permission?limit=20&offset=0",
+                "next": None,
+                "previous": None,
+                "results": [
+                    {
+                        "id": model.permission[0].id,
+                        "name": model.permission[0].name,
+                    },
+                ],
+            }
+
+    # count + select
+    def test_permission__not_lookup(self, database: capy.Database, django_assert_num_queries, fake: capy.Fake):
+        model = database.create(permission=2, group=2)
+        model.group[0].permissions.set([model.permission[0]])
+        model.group[1].permissions.set([model.permission[1]])
+
+        factory = APIRequestFactory()
+        request = factory.get(f"/notes/547/?groups.name![startswith]={model.group[0].name[:3]}")
+
+        with django_assert_num_queries(2) as captured:
+            serializer = PermissionSerializer(request=request)
+
+            assert serializer.filter(id__in=[x.id for x in model.permission]) == {
+                "count": 1,
+                "first": "/permission?limit=20&offset=0",
+                "last": "/permission?limit=20&offset=0",
+                "next": None,
+                "previous": None,
+                "results": [
+                    {
+                        "id": model.permission[1].id,
+                        "name": model.permission[1].name,
+                    },
+                ],
+            }
+
+    # count + select
+    def test_permission__in(self, database: capy.Database, django_assert_num_queries, fake: capy.Fake):
+        model = database.create(permission=2, group=2)
+        model.group[0].permissions.set([model.permission[0]])
+        model.group[1].permissions.set([model.permission[1]])
+
+        factory = APIRequestFactory()
+        request = factory.get(f"/notes/547/?groups.name={model.group[0].name},{model.group[1].name}")
 
         with django_assert_num_queries(2) as captured:
             serializer = PermissionSerializer(request=request)
@@ -1014,10 +1148,373 @@ class TestFilterM2M:
                 ],
             }
 
-    def test_permission__not_iexact(self, database: capy.Database, django_assert_num_queries, fake: capy.Fake):
-        model = database.create(permission=2, group=[{"name": fake.name().upper()} for _ in range(2)])
+    # count + select
+    def test_permission__not_in(self, database: capy.Database, django_assert_num_queries, fake: capy.Fake):
+        model = database.create(permission=2, group=2)
+        model.group[0].permissions.set([model.permission[0]])
+        model.group[1].permissions.set([model.permission[1]])
+
         factory = APIRequestFactory()
-        request = factory.get(f"/notes/547/?groups.name!~={model.group[0].name.lower()}")
+        request = factory.get(f"/notes/547/?groups.name!={model.group[0].name},{model.group[1].name}")
+
+        with django_assert_num_queries(2) as captured:
+            serializer = PermissionSerializer(request=request)
+
+            assert serializer.filter(id__in=[x.id for x in model.permission]) == {
+                "count": 0,
+                "first": "/permission?limit=20&offset=0",
+                "last": "/permission?limit=20&offset=0",
+                "next": None,
+                "previous": None,
+                "results": [],
+            }
+
+    # count + select
+    def test_permission__iexact__in(self, database: capy.Database, django_assert_num_queries, fake: capy.Fake):
+        model = database.create(permission=2, group=[{"name": fake.name().upper()} for _ in range(2)])
+        model.group[0].permissions.set([model.permission[0]])
+        model.group[1].permissions.set([model.permission[1]])
+
+        factory = APIRequestFactory()
+        request = factory.get(f"/notes/547/?groups.name~={model.group[0].name.lower()},{model.group[1].name.lower()}")
+
+        with django_assert_num_queries(2) as captured:
+            serializer = PermissionSerializer(request=request)
+
+            assert serializer.filter(id__in=[x.id for x in model.permission]) == {
+                "count": 2,
+                "first": "/permission?limit=20&offset=0",
+                "last": "/permission?limit=20&offset=0",
+                "next": None,
+                "previous": None,
+                "results": [
+                    {
+                        "id": model.permission[0].id,
+                        "name": model.permission[0].name,
+                    },
+                    {
+                        "id": model.permission[1].id,
+                        "name": model.permission[1].name,
+                    },
+                ],
+            }
+
+    # count + select
+    def test_permission__iexact__not_in(self, database: capy.Database, django_assert_num_queries, fake: capy.Fake):
+        model = database.create(permission=2, group=[{"name": fake.name().upper()} for _ in range(2)])
+        model.group[0].permissions.set([model.permission[0]])
+        model.group[1].permissions.set([model.permission[1]])
+
+        factory = APIRequestFactory()
+        request = factory.get(f"/notes/547/?groups.name!~={model.group[0].name.lower()},{model.group[1].name.lower()}")
+
+        with django_assert_num_queries(2) as captured:
+            serializer = PermissionSerializer(request=request)
+
+            assert serializer.filter(id__in=[x.id for x in model.permission]) == {
+                "count": 0,
+                "first": "/permission?limit=20&offset=0",
+                "last": "/permission?limit=20&offset=0",
+                "next": None,
+                "previous": None,
+                "results": [],
+            }
+
+
+class TestFilterM2O:
+    # count + select
+    def test_permission__exact(self, database: capy.Database, django_assert_num_queries):
+        model = database.create(permission=2, content_type=2)
+
+        model.permission[0].content_type = model.content_type[0]
+        model.permission[0].save()
+
+        model.permission[1].content_type = model.content_type[1]
+        model.permission[1].save()
+
+        factory = APIRequestFactory()
+        request = factory.get(f"/notes/547/?content_type.app_label={model.content_type[0].app_label}")
+
+        with django_assert_num_queries(2) as captured:
+            serializer = PermissionSerializer(request=request)
+
+            assert serializer.filter(id__in=[x.id for x in model.permission]) == {
+                "count": 1,
+                "first": "/permission?limit=20&offset=0",
+                "last": "/permission?limit=20&offset=0",
+                "next": None,
+                "previous": None,
+                "results": [
+                    {
+                        "id": model.permission[0].id,
+                        "name": model.permission[0].name,
+                    },
+                ],
+            }
+
+    # count + select
+    def test_permission__not_exact(self, database: capy.Database, django_assert_num_queries):
+        model = database.create(permission=2, content_type=2)
+
+        model.permission[0].content_type = model.content_type[0]
+        model.permission[0].save()
+
+        model.permission[1].content_type = model.content_type[1]
+        model.permission[1].save()
+
+        factory = APIRequestFactory()
+        request = factory.get(f"/notes/547/?content_type.app_label!={model.content_type[0].app_label}")
+
+        with django_assert_num_queries(2) as captured:
+            serializer = PermissionSerializer(request=request)
+
+            assert serializer.filter(id__in=[x.id for x in model.permission]) == {
+                "count": 1,
+                "first": "/permission?limit=20&offset=0",
+                "last": "/permission?limit=20&offset=0",
+                "next": None,
+                "previous": None,
+                "results": [
+                    {
+                        "id": model.permission[1].id,
+                        "name": model.permission[1].name,
+                    },
+                ],
+            }
+
+    # count + select
+    def test_permission__iexact(self, database: capy.Database, django_assert_num_queries, fake: capy.Fake):
+        model = database.create(permission=2, content_type=[{"app_label": fake.name().upper()} for _ in range(2)])
+
+        model.permission[0].content_type = model.content_type[0]
+        model.permission[0].save()
+
+        model.permission[1].content_type = model.content_type[1]
+        model.permission[1].save()
+
+        factory = APIRequestFactory()
+        request = factory.get(f"/notes/547/?content_type.app_label~={model.content_type[0].app_label.lower()}")
+
+        with django_assert_num_queries(2) as captured:
+            serializer = PermissionSerializer(request=request)
+
+            assert serializer.filter(id__in=[x.id for x in model.permission]) == {
+                "count": 1,
+                "first": "/permission?limit=20&offset=0",
+                "last": "/permission?limit=20&offset=0",
+                "next": None,
+                "previous": None,
+                "results": [
+                    {
+                        "id": model.permission[0].id,
+                        "name": model.permission[0].name,
+                    },
+                ],
+            }
+
+    # count + select
+    def test_permission__not_iexact(self, database: capy.Database, django_assert_num_queries, fake: capy.Fake):
+        model = database.create(permission=2, content_type=[{"app_label": fake.name().upper()} for _ in range(2)])
+
+        model.permission[0].content_type = model.content_type[0]
+        model.permission[0].save()
+
+        model.permission[1].content_type = model.content_type[1]
+        model.permission[1].save()
+
+        factory = APIRequestFactory()
+        request = factory.get(f"/notes/547/?content_type.app_label!~={model.content_type[0].app_label.lower()}")
+
+        with django_assert_num_queries(2) as captured:
+            serializer = PermissionSerializer(request=request)
+
+            assert serializer.filter(id__in=[x.id for x in model.permission]) == {
+                "count": 1,
+                "first": "/permission?limit=20&offset=0",
+                "last": "/permission?limit=20&offset=0",
+                "next": None,
+                "previous": None,
+                "results": [
+                    {
+                        "id": model.permission[1].id,
+                        "name": model.permission[1].name,
+                    },
+                ],
+            }
+
+    # count + select
+    def test_permission__lookup(self, database: capy.Database, django_assert_num_queries, fake: capy.Fake):
+        model = database.create(permission=2, content_type=[{"app_label": fake.name().upper()} for _ in range(2)])
+
+        model.permission[0].content_type = model.content_type[0]
+        model.permission[0].save()
+
+        model.permission[1].content_type = model.content_type[1]
+        model.permission[1].save()
+
+        factory = APIRequestFactory()
+        request = factory.get(f"/notes/547/?content_type.app_label[startswith]={model.content_type[0].app_label[:3]}")
+
+        with django_assert_num_queries(2) as captured:
+            serializer = PermissionSerializer(request=request)
+
+            assert serializer.filter(id__in=[x.id for x in model.permission]) == {
+                "count": 1,
+                "first": "/permission?limit=20&offset=0",
+                "last": "/permission?limit=20&offset=0",
+                "next": None,
+                "previous": None,
+                "results": [
+                    {
+                        "id": model.permission[0].id,
+                        "name": model.permission[0].name,
+                    },
+                ],
+            }
+
+    # count + select
+    def test_permission__not_lookup(self, database: capy.Database, django_assert_num_queries, fake: capy.Fake):
+        model = database.create(permission=2, content_type=2)
+
+        model.permission[0].content_type = model.content_type[0]
+        model.permission[0].save()
+
+        model.permission[1].content_type = model.content_type[1]
+        model.permission[1].save()
+
+        factory = APIRequestFactory()
+        request = factory.get(f"/notes/547/?content_type.app_label![startswith]={model.content_type[0].app_label[:3]}")
+
+        with django_assert_num_queries(2) as captured:
+            serializer = PermissionSerializer(request=request)
+
+            assert serializer.filter(id__in=[x.id for x in model.permission]) == {
+                "count": 1,
+                "first": "/permission?limit=20&offset=0",
+                "last": "/permission?limit=20&offset=0",
+                "next": None,
+                "previous": None,
+                "results": [
+                    {
+                        "id": model.permission[1].id,
+                        "name": model.permission[1].name,
+                    },
+                ],
+            }
+
+    # count + select
+    def test_permission__in(self, database: capy.Database, django_assert_num_queries, fake: capy.Fake):
+        model = database.create(permission=2, content_type=2)
+
+        model.permission[0].content_type = model.content_type[0]
+        model.permission[0].save()
+
+        model.permission[1].content_type = model.content_type[1]
+        model.permission[1].save()
+
+        factory = APIRequestFactory()
+        request = factory.get(
+            f"/notes/547/?content_type.app_label={model.content_type[0].app_label},{model.content_type[1].app_label}"
+        )
+
+        with django_assert_num_queries(2) as captured:
+            serializer = PermissionSerializer(request=request)
+
+            assert serializer.filter(id__in=[x.id for x in model.permission]) == {
+                "count": 2,
+                "first": "/permission?limit=20&offset=0",
+                "last": "/permission?limit=20&offset=0",
+                "next": None,
+                "previous": None,
+                "results": [
+                    {
+                        "id": model.permission[0].id,
+                        "name": model.permission[0].name,
+                    },
+                    {
+                        "id": model.permission[1].id,
+                        "name": model.permission[1].name,
+                    },
+                ],
+            }
+
+    # count + select
+    def test_permission__not_in(self, database: capy.Database, django_assert_num_queries, fake: capy.Fake):
+        model = database.create(permission=2, content_type=2)
+
+        model.permission[0].content_type = model.content_type[0]
+        model.permission[0].save()
+
+        model.permission[1].content_type = model.content_type[1]
+        model.permission[1].save()
+
+        factory = APIRequestFactory()
+        request = factory.get(
+            f"/notes/547/?content_type.app_label!={model.content_type[0].app_label},{model.content_type[1].app_label}"
+        )
+
+        with django_assert_num_queries(2) as captured:
+            serializer = PermissionSerializer(request=request)
+
+            assert serializer.filter(id__in=[x.id for x in model.permission]) == {
+                "count": 0,
+                "first": "/permission?limit=20&offset=0",
+                "last": "/permission?limit=20&offset=0",
+                "next": None,
+                "previous": None,
+                "results": [],
+            }
+
+    # count + select
+    def test_permission__iexact__in(self, database: capy.Database, django_assert_num_queries, fake: capy.Fake):
+        model = database.create(permission=2, content_type=[{"app_label": fake.name().upper()} for _ in range(2)])
+
+        model.permission[0].content_type = model.content_type[0]
+        model.permission[0].save()
+
+        model.permission[1].content_type = model.content_type[1]
+        model.permission[1].save()
+
+        factory = APIRequestFactory()
+        request = factory.get(
+            f"/notes/547/?content_type.app_label~={model.content_type[0].app_label.lower()},{model.content_type[1].app_label.lower()}"
+        )
+
+        with django_assert_num_queries(2) as captured:
+            serializer = PermissionSerializer(request=request)
+
+            assert serializer.filter(id__in=[x.id for x in model.permission]) == {
+                "count": 2,
+                "first": "/permission?limit=20&offset=0",
+                "last": "/permission?limit=20&offset=0",
+                "next": None,
+                "previous": None,
+                "results": [
+                    {
+                        "id": model.permission[0].id,
+                        "name": model.permission[0].name,
+                    },
+                    {
+                        "id": model.permission[1].id,
+                        "name": model.permission[1].name,
+                    },
+                ],
+            }
+
+    # count + select
+    def test_permission__iexact__not_in(self, database: capy.Database, django_assert_num_queries, fake: capy.Fake):
+        model = database.create(permission=2, content_type=[{"app_label": fake.name().upper()} for _ in range(2)])
+
+        model.permission[0].content_type = model.content_type[0]
+        model.permission[0].save()
+
+        model.permission[1].content_type = model.content_type[1]
+        model.permission[1].save()
+
+        factory = APIRequestFactory()
+        request = factory.get(
+            f"/notes/547/?content_type.app_label!~={model.content_type[0].app_label.lower()},{model.content_type[1].app_label.lower()}"
+        )
 
         with django_assert_num_queries(2) as captured:
             serializer = PermissionSerializer(request=request)

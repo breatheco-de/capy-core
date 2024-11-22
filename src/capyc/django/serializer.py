@@ -1033,13 +1033,15 @@ class Serializer(ModelFieldMixin):
 
                 if "," in value:
                     value = value.split(",")
-                    operation = "in"
+                    operation += "__in"
 
                 field = cls._rewrites.get(field, field)
 
                 return None, {"field": field, "operation": operation, "value": value, "parents": parents}
 
             elif "~=" in x:
+                print("here")
+
                 field, value = x.split("~=")
                 handler, error_handler, supported_operations = cls._filter_map[field]
 
@@ -1051,9 +1053,10 @@ class Serializer(ModelFieldMixin):
 
                 if "," in value:
                     value = value.split(",")
-                    operation = "in"
+                    operation += "__in"
 
                 field = cls._rewrites.get(field, field)
+                print(field, operation, value)
 
                 return {"field": field, "operation": operation, "value": value, "parents": parents}, None
 
@@ -1187,16 +1190,45 @@ class Serializer(ModelFieldMixin):
         return ser._validate_child_filter(".".join(rest), parents + [forward])
 
     def _query_filter(self, qs: QuerySet) -> QuerySet:
+        from django.db.models import Q
+
         def build_filter(filters: list[FilterOperation]):
-            res = {}
+            named = {}
+            unnamed = []
             for filter in filters:
+                is_iexact_in = filter["operation"] == "iexact__in" or filter["operation"] == "in__iexact"
 
-                if filter["parents"]:
-                    res["__".join(filter["parents"]) + f"__{filter['field']}__{filter['operation']}"] = filter["value"]
+                if filter["parents"] and is_iexact_in:
+                    print(1)
+                    query = Q()
+                    for value in filter["value"]:
+                        kwargs = {}
+                        kwargs["__".join(filter["parents"]) + f"__{filter['field']}__iexact"] = value
+                        query |= Q(**kwargs)
+
+                    unnamed.append(query)
+
+                elif filter["parents"]:
+                    print(2)
+                    named["__".join(filter["parents"]) + f"__{filter['field']}__{filter['operation']}"] = filter[
+                        "value"
+                    ]
+
+                elif is_iexact_in:
+                    print(3)
+                    query = Q()
+                    for value in filter["value"]:
+                        kwargs = {}
+                        kwargs[f"{filter['field']}__iexact"] = value
+                        query |= Q(**kwargs)
+
+                    unnamed.append(query)
+
                 else:
-                    res[f"{filter['field']}__{filter['operation']}"] = filter["value"]
+                    print(4)
+                    named[f"{filter['field']}__{filter['operation']}"] = filter["value"]
 
-            return res
+            return unnamed, named
 
         query_filters: list[FilterOperation] = []
         exclude_filters: list[FilterOperation] = []
@@ -1226,11 +1258,16 @@ class Serializer(ModelFieldMixin):
                 if exclude:
                     exclude_filters.append(exclude)
 
+        print(build_filter(query_filters))
+        print(build_filter(exclude_filters))
+
         if query_filters:
-            qs = qs.filter(**build_filter(query_filters))
+            args, kwargs = build_filter(query_filters)
+            qs = qs.filter(*args, **kwargs)
 
         if exclude_filters:
-            qs = qs.exclude(**build_filter(exclude_filters))
+            args, kwargs = build_filter(exclude_filters)
+            qs = qs.exclude(*args, **kwargs)
 
         return qs
 
