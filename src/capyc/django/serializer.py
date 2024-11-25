@@ -54,6 +54,7 @@ from django.db.models import (
     URLField,
     UUIDField,
 )
+from django.db.models import fields as django_fields
 from django.db.models.fields.related_descriptors import (
     ForeignKeyDeferredAttribute,
     ForwardManyToOneDescriptor,
@@ -66,6 +67,8 @@ from django.db.models.query_utils import DeferredAttribute
 from django.http import HttpRequest
 
 from capyc.rest_framework.exceptions import ValidationException
+
+__all__ = ["Serializer"]
 
 
 def update_querystring(url, params):
@@ -256,12 +259,6 @@ type QueryHandler = tuple[QueryHandlerFn, QueryHandlerFn | None, list[str]]
 
 
 class FieldRelatedDescriptor:
-    path: str
-    field_name: str
-    field_alias: str
-    nullable: bool
-    related_model: models.Model
-    query_handler: Optional[QueryHandler] = None
 
     def __init__(
         self,
@@ -271,6 +268,14 @@ class FieldRelatedDescriptor:
         nullable: bool,
         related_model: models.Model,
         query_handler: Optional[QueryHandler] = None,
+        blank: bool = False,
+        default: Any = None,
+        help_text: str = "",
+        editable: bool = True,
+        is_relation: bool = False,
+        primary_key: bool = False,
+        unique: bool = False,
+        query_param: Optional[str] = None,
     ):
         self.path = path
         self.field_name = field_name
@@ -278,6 +283,14 @@ class FieldRelatedDescriptor:
         self.nullable = nullable
         self.related_model = related_model
         self.query_handler = query_handler
+        self.blank = blank
+        self.default = default
+        self.help_text = help_text
+        self.editable = editable
+        self.is_relation = is_relation
+        self.primary_key = primary_key
+        self.unique = unique
+        self.query_param = query_param
 
     def __repr__(self) -> str:
         return (
@@ -296,22 +309,6 @@ class Choice:
 
 
 class FieldDescriptor:
-    type: Type[models.Field]
-    primary_key: bool
-    max_length: int
-    field_name: str
-    is_relation: int
-    editable: bool
-    help_text: str
-    # auto_created: bool
-    # field_alias: str
-    null: bool
-    blank: bool
-    choices: Optional[list[Choice]]
-    # related_model: models.Model
-    serializer: Optional[callable]
-    query_handler: Optional[QueryHandler]
-
     def __init__(
         self,
         type: Type[models.Field],
@@ -327,6 +324,8 @@ class FieldDescriptor:
         # related_model: models.Model,
         serializer: Optional[callable] = None,
         query_handler: Optional[QueryHandler] = None,
+        default: Any = None,
+        unique: bool = False,
     ):
         self.type = type
         self.primary_key = primary_key
@@ -343,6 +342,8 @@ class FieldDescriptor:
         # self.related_model = related_model
         self.serializer = serializer
         self.query_handler = query_handler
+        self.default = default
+        self.unique = unique
 
     def __repr__(self) -> str:
         return (
@@ -352,7 +353,7 @@ class FieldDescriptor:
         )
 
 
-class ModelCached:
+class ModelCache:
 
     def __init__(self):
         self.reverse_one_to_one_list: list[FieldRelatedDescriptor] = []
@@ -363,24 +364,25 @@ class ModelCached:
         self.id_list: list[FieldDescriptor] = []
         self.field_list: list[FieldDescriptor] = []
         self.lookup_rewrites: dict[str, str] = {}
+        self.query_params: dict[str, str] = {}
 
 
-MODEL_CACHE: dict[str, ModelCached] = {}
+MODEL_CACHE: dict[str, ModelCache] = {}
 MODEL_REL_CACHE: dict[str, dict[str, FieldRelatedDescriptor]] = {}
 
 
 @overload
-def get_cache(key: str) -> ModelCached:
+def get_cache(key: str) -> ModelCache:
     pass
 
 
 @overload
-def get_cache() -> dict[str, ModelCached]:
+def get_cache() -> dict[str, ModelCache]:
     pass
 
 
-def get_cache(key: Optional[str] = None) -> dict[str, ModelCached] | ModelCached:
-    cache: dict[str, ModelCached] = {}
+def get_cache(key: Optional[str] = None) -> dict[str, ModelCache] | ModelCache:
+    cache: dict[str, ModelCache] = {}
 
     if key is None:
         return copy(MODEL_CACHE[key])
@@ -397,7 +399,7 @@ class ExpandSets(TypedDict):
     parents: set[str]
 
 
-class ModelFieldMixin:
+class SerializerMetaBuilder:
     depth = 1
     request: Optional[HttpRequest | AsyncRequest] = None
     path: Optional[str] = None
@@ -428,7 +430,7 @@ class ModelFieldMixin:
         key = model._meta.app_label + "." + model.__name__
         cache = MODEL_CACHE.get(key)
         if cache is None:
-            cache = ModelCached()
+            cache = ModelCache()
             MODEL_CACHE[key] = cache
 
         cls.cache = MODEL_CACHE[key]
@@ -444,6 +446,7 @@ class ModelFieldMixin:
         cls.rel = rel_cache
 
         def get_related_attrs(field, name):
+            x = field
             if hasattr(field, "field"):
                 field = field.field
 
@@ -453,13 +456,40 @@ class ModelFieldMixin:
             else:
                 field = field.related
 
+            queryattr = field.attname
+            if queryattr.endswith("_id"):
+                queryattr = queryattr[:-3]
+
+            elif queryattr.endswith("_set"):
+                queryattr = queryattr[:-4]
+
+            elif queryattr.endswith("_pk"):
+                queryattr = queryattr[:-3]
+
+            related_model = field.related_model
+            path = field.related_model._meta.app_label + "." + field.related_model.__name__
+            if hasattr(x, "rel") and hasattr(x, "reverse"):
+                if x.reverse:
+                    path = x.rel.related_model._meta.app_label + "." + x.rel.related_model.__name__
+                    related_model = x.rel.related_model
+
+            cls.cache.query_params[name] = queryattr
+
             obj = FieldRelatedDescriptor(
-                path=field.related_model._meta.app_label + "." + field.related_model.__name__,
+                path=path,
                 field_name=name,
                 field_alias=field.name,
                 nullable=field.null,
-                related_model=field.related_model,
+                related_model=related_model,
                 query_handler=QUERY_REWRITES.get(type(field), None),
+                blank=field.blank,
+                default=field.default,
+                help_text=field.help_text,
+                editable=field.editable,
+                is_relation=field.is_relation,
+                primary_key=field.primary_key,
+                unique=field.unique,
+                query_param=queryattr,
             )
 
             return obj
@@ -486,6 +516,8 @@ class ModelFieldMixin:
                 choices=choices,
                 serializer=serializer,
                 query_handler=QUERY_REWRITES.get(type(field), None),
+                default=field.default,
+                unique=field.unique,
             )
 
             return obj
@@ -717,7 +749,7 @@ class ModelFieldMixin:
         cls._lookups = cls.cache.lookup_rewrites
 
 
-class Serializer(ModelFieldMixin):
+class Serializer(SerializerMetaBuilder):
     _serializer_instances: dict[str, Type["Serializer"]]
     sort_by = "pk"
 
@@ -786,7 +818,12 @@ class Serializer(ModelFieldMixin):
 
                     qs = data[parsed]
                     count = getattr(instance, f"__count_{field}", None)
-                    data[key] = ser._instances(qs.all(), count)
+                    query_param = self.cache.query_params.get(field)
+                    data[key] = ser._instances(
+                        qs.all(),
+                        count,
+                        extra={query_param: getattr(instance, "pk", None)},
+                    )
 
                 else:
                     path = None
@@ -800,7 +837,15 @@ class Serializer(ModelFieldMixin):
 
                     m2m = getattr(instance, field)
                     count = getattr(instance, f"__count_{field}", None)
-                    data[key] = self._wraps_pagination(m2m.all().only("pk"), count, pks=True, path=path)
+                    query_param = self.cache.query_params.get(field)
+
+                    data[key] = self._wraps_pagination(
+                        m2m.all().only("pk"),
+                        count,
+                        pks=True,
+                        path=path,
+                        extra={query_param: getattr(instance, "pk", None)},
+                    )
 
         return data
 
@@ -850,13 +895,21 @@ class Serializer(ModelFieldMixin):
         return self._parsed_fields, self._expands, self.cache
 
     def _wraps_pagination(
-        self, qs: QuerySet, count: Optional[int] = None, pks: bool = False, path: Optional[str] = "-"
+        self,
+        qs: QuerySet,
+        count: Optional[int] = None,
+        pks: bool = False,
+        path: Optional[str] = "-",
+        extra: Optional[dict[str, Any]] = None,
     ):
         if count is None:
             count = qs.count()
 
         if path == "-":
             path = self.path
+
+        if extra is None:
+            extra = {}
 
         base = {
             "count": count,
@@ -875,22 +928,43 @@ class Serializer(ModelFieldMixin):
             **base,
             "next": None,
             "previous": None,
-            "first": update_querystring(path, {"limit": PAGE_LIMIT, "offset": 0}),
-            "last": update_querystring(path, {"limit": PAGE_LIMIT, "offset": offset if offset >= 0 else 0}),
+            "first": update_querystring(
+                path,
+                {
+                    "limit": PAGE_LIMIT,
+                    "offset": 0,
+                    **extra,
+                },
+            ),
+            "last": update_querystring(
+                path,
+                {
+                    "limit": PAGE_LIMIT,
+                    "offset": offset if offset >= 0 else 0,
+                    **extra,
+                },
+            ),
         }
         if count > PAGE_LIMIT:
-            obj["next"] = update_querystring(path, {"limit": PAGE_LIMIT, "offset": PAGE_LIMIT})
+            obj["next"] = update_querystring(
+                path,
+                {
+                    "limit": PAGE_LIMIT,
+                    "offset": PAGE_LIMIT,
+                    **extra,
+                },
+            )
 
         return obj
 
-    # asdasdsad
-    def metadata(self, depth: int = 1):
-        return {
-            "depth": self.depth,
-            "fields": self._field_list,
-            "ids": self._id_list,
-            "m2m": self._m2m_list,
-        }
+    # # asdasdsad
+    # def metadata(self, depth: int = 1):
+    #     return {
+    #         "depth": self.depth,
+    #         "fields": self._field_list,
+    #         "ids": self._id_list,
+    #         "m2m": self._m2m_list,
+    #     }
 
     @classmethod
     def _get_query_value(
@@ -1040,8 +1114,6 @@ class Serializer(ModelFieldMixin):
                 return None, {"field": field, "operation": operation, "value": value, "parents": parents}
 
             elif "~=" in x:
-                print("here")
-
                 field, value = x.split("~=")
                 handler, error_handler, supported_operations = cls._filter_map[field]
 
@@ -1056,7 +1128,6 @@ class Serializer(ModelFieldMixin):
                     operation += "__in"
 
                 field = cls._rewrites.get(field, field)
-                print(field, operation, value)
 
                 return {"field": field, "operation": operation, "value": value, "parents": parents}, None
 
@@ -1199,7 +1270,6 @@ class Serializer(ModelFieldMixin):
                 is_iexact_in = filter["operation"] == "iexact__in" or filter["operation"] == "in__iexact"
 
                 if filter["parents"] and is_iexact_in:
-                    print(1)
                     query = Q()
                     for value in filter["value"]:
                         kwargs = {}
@@ -1209,13 +1279,11 @@ class Serializer(ModelFieldMixin):
                     unnamed.append(query)
 
                 elif filter["parents"]:
-                    print(2)
                     named["__".join(filter["parents"]) + f"__{filter['field']}__{filter['operation']}"] = filter[
                         "value"
                     ]
 
                 elif is_iexact_in:
-                    print(3)
                     query = Q()
                     for value in filter["value"]:
                         kwargs = {}
@@ -1225,7 +1293,6 @@ class Serializer(ModelFieldMixin):
                     unnamed.append(query)
 
                 else:
-                    print(4)
                     named[f"{filter['field']}__{filter['operation']}"] = filter["value"]
 
             return unnamed, named
@@ -1258,9 +1325,6 @@ class Serializer(ModelFieldMixin):
                 if exclude:
                     exclude_filters.append(exclude)
 
-        print(build_filter(query_filters))
-        print(build_filter(exclude_filters))
-
         if query_filters:
             args, kwargs = build_filter(query_filters)
             qs = qs.filter(*args, **kwargs)
@@ -1271,9 +1335,160 @@ class Serializer(ModelFieldMixin):
 
         return qs
 
-    def filter(self, **kwargs: Any) -> List[dict[str, Any]]:
-        self._set_fields()
+    @classmethod
+    def help(cls, depth: Optional[int] = None):
 
+        def get_field_info(field: FieldDescriptor):
+            attributes = {
+                "null": field.null,
+                "blank": field.blank,
+                "editable": field.editable,
+                "is_relation": field.is_relation,
+                "primary_key": field.primary_key,
+                "type": field.type.__name__,
+                "default": field.default if field.default is not django_fields.NOT_PROVIDED else None,
+                "help_text": field.help_text,
+            }
+
+            if field.choices:
+                attributes["choices"] = field.choices
+
+            if field.max_length:
+                attributes["choices"] = field.max_length
+
+            return {"name": field.field_name, "attributes": attributes}
+
+        def get_rel_info(field: FieldRelatedDescriptor):
+            # field_name: str,
+            return {
+                "name": field.field_name,
+                "metadata": {
+                    "null": field.nullable,
+                    "blank": field.blank,
+                    "editable": field.editable,
+                    "is_relation": field.is_relation,
+                    "primary_key": field.primary_key,
+                    "type": field.path,
+                    "default": field.default if field.default is not django_fields.NOT_PROVIDED else None,
+                    "help_text": field.help_text,
+                },
+            }
+
+        if depth is None:
+            depth = cls.depth
+
+        elif cls.depth == 0:
+            return
+
+        sets = []
+        field_map = {}
+        id_map = {}
+        rel_map = {}
+
+        for field in cls.cache.field_list:
+            field_map[field.field_name] = field
+
+        for field in cls.cache.id_list:
+            id_map[field.field_name] = field
+
+        m2m = [*cls.cache.many_to_many_list, *cls.cache.reverse_many_to_one_list]
+        o2 = [
+            *cls.cache.forward_one_to_one_list,
+            *cls.cache.reverse_one_to_one_list,
+            *cls.cache.forward_many_to_one_list,
+        ]
+
+        for field in m2m + o2:
+            rel_map[field.field_name] = field
+
+        inherited_filters = set()
+
+        for s in cls.fields:
+            fields = []
+            expandables = []
+            for field_name in cls.fields[s]:
+                if field_info := field_map.get(field_name):
+                    fields.append(
+                        {
+                            "name": field_name,
+                            **get_field_info(field_info),
+                        }
+                    )
+
+                else:
+
+                    if "[" in field_name:
+                        field_name, child_sets = field_name.split("[")
+                        child_sets = child_sets.replace("]", "")
+                        expandable = True
+                    else:
+                        child_sets = None
+                        expandable = False
+
+                    original_field_name = cls._rewrites.get(field_name, field_name)
+
+                    if rel_info := rel_map.get(original_field_name):
+                        id_info = id_map.get(field_name + "_id")
+                        if expandable:
+                            child_help = None
+                            ser: Serializer | None = getattr(cls, field_name, None)
+                            if ser:
+                                child_help = ser.help(depth - 1)
+
+                            if id_info:
+                                obj = {
+                                    **get_rel_info(rel_info),
+                                    "name": field_name,
+                                    "type": "list" if original_field_name in cls._m2m_list else "object",
+                                }
+                                if child_help:
+                                    obj["sets"] = child_help["sets"]
+                                    for x in child_help["filters"]:
+                                        inherited_filters.add(f"{field_name}.{x}")
+
+                                expandables.append(obj)
+
+                            else:
+                                obj = {
+                                    **get_rel_info(rel_info),
+                                    "name": field_name,
+                                    "type": "list" if original_field_name in cls._m2m_list else "object",
+                                }
+                                if child_help:
+                                    obj["sets"] = child_help["sets"]
+                                    for x in child_help["filters"]:
+                                        inherited_filters.add(f"{field_name}.{x}")
+
+                                expandables.append(obj)
+
+                        elif id_info:
+                            fields.append(
+                                {
+                                    **get_field_info(id_info),
+                                    "name": field_name,
+                                    "type": "pks" if original_field_name in cls._m2m_list else "pk",
+                                }
+                            )
+
+            sets.append(
+                {
+                    "set": s,
+                    "fields": fields,
+                    "relationships": expandables,
+                }
+            )
+
+        result = {"sets": sets, "filters": sorted([*cls.filters, *inherited_filters])}
+
+        return result
+
+    def filter(self, **kwargs: Any) -> List[dict[str, Any]] | dict[str, Any]:
+
+        for x in (self.request.META.get("QUERY_STRING") or "").split("&"):
+            if x == "help":
+                return self.help()
+
+        self._set_fields()
         qs = self.model.objects.filter(**kwargs).order_by(self.sort_by)
         qs = self._query_filter(qs)
         qs = self._prefetch(qs)
@@ -1299,16 +1514,23 @@ class Serializer(ModelFieldMixin):
     def aget(self, **kwargs: Any) -> dict[str, Any] | None:
         return self.get(**kwargs)
 
-    def _instances(self, qs: QuerySet[models.Model], count: Optional[int] = None) -> List[dict[str, Any]]:
+    def _instances(
+        self,
+        qs: QuerySet[models.Model],
+        count: Optional[int] = None,
+        extra: Optional[dict[str, Any]] = None,
+    ) -> List[dict[str, Any]]:
         self._set_fields()
 
         qs = qs.order_by(self.sort_by)
         qs = self._prefetch(qs)
-        return self._wraps_pagination(qs, count)
+        return self._wraps_pagination(qs, count, extra=extra)
 
     @sync_to_async
-    def _ainstances(self, qs: QuerySet[models.Model], count: Optional[int] = None) -> List[dict[str, Any]]:
-        return self._instances(qs, count)
+    def _ainstances(
+        self, qs: QuerySet[models.Model], count: Optional[int] = None, extra: Optional[dict[str, Any]] = None
+    ) -> List[dict[str, Any]]:
+        return self._instances(qs, count, extra)
 
     def _instance(self, instance: models.Model) -> dict[str, Any] | None:
         return self._serialize(instance)

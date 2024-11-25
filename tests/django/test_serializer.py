@@ -46,6 +46,7 @@ class PermissionSerializerDuplicate(Serializer):
     }
     filters = ("name", "codename", "content_type", "groups")
     depth = 2
+    # content_type = (ContentTypeSerializer, 'group')
     content_type = ContentTypeSerializer
 
 
@@ -135,7 +136,7 @@ class TestNoExpandGet:
                 "name": model.permission.name,
             }
 
-    # select + m2m select
+    # selectm2m select
     def test_permission__two_sets__ids(self, database: capy.Database, django_assert_num_queries):
         model = database.create(permission=1, group=2)
 
@@ -152,7 +153,7 @@ class TestNoExpandGet:
                 "content_type": model.permission.content_type.id,
             }
 
-    # select + m2m select
+    # selectm2m select
     def test_permission__two_sets__lists(self, database: capy.Database, django_assert_num_queries):
         model = database.create(permission=1, group=2)
 
@@ -168,8 +169,8 @@ class TestNoExpandGet:
                 "codename": model.permission.codename,
                 "groups": {
                     "count": 2,
-                    "first": "/group?limit=20&offset=0",
-                    "last": "/group?limit=20&offset=0",
+                    "first": f"/group?limit=20&offset=0&permissions={model.permission.id}",
+                    "last": f"/group?limit=20&offset=0&permissions={model.permission.id}",
                     "next": None,
                     "previous": None,
                     "results": [
@@ -182,7 +183,7 @@ class TestNoExpandGet:
 
 class TestNoExpandFilter:
 
-    # count + select
+    # countselect
     def test_permission__default__two_items(self, database: capy.Database, django_assert_num_queries):
         model = database.create(permission=2, group=2)
 
@@ -210,7 +211,7 @@ class TestNoExpandFilter:
                 ],
             }
 
-    # count + select
+    # countselect
     def test_permission__two_sets__two_items__ids(self, database: capy.Database, django_assert_num_queries):
         model = database.create(permission=2, group=2)
 
@@ -242,7 +243,7 @@ class TestNoExpandFilter:
                 ],
             }
 
-    # count + select + m2m select * 2
+    # countselectm2m select * 2
     def test_permission__two_sets__two_items__lists(self, database: capy.Database, django_assert_num_queries):
         model = database.create(permission=2, group=2)
 
@@ -267,8 +268,8 @@ class TestNoExpandFilter:
                             "count": 2,
                             "next": None,
                             "previous": None,
-                            "first": "/group?limit=20&offset=0",
-                            "last": "/group?limit=20&offset=0",
+                            "first": f"/group?limit=20&offset=0&permissions={model.permission[0].id}",
+                            "last": f"/group?limit=20&offset=0&permissions={model.permission[0].id}",
                             "results": [1, 2],
                         },
                     },
@@ -280,8 +281,8 @@ class TestNoExpandFilter:
                             "count": 2,
                             "next": None,
                             "previous": None,
-                            "first": "/group?limit=20&offset=0",
-                            "last": "/group?limit=20&offset=0",
+                            "first": f"/group?limit=20&offset=0&permissions={model.permission[1].id}",
+                            "last": f"/group?limit=20&offset=0&permissions={model.permission[1].id}",
                             "results": [1, 2],
                         },
                     },
@@ -290,7 +291,7 @@ class TestNoExpandFilter:
 
 
 class TestExpandGet:
-    # select + m2m select
+    # selectm2m select
     def test_permission__default(self, database: capy.Database, django_assert_num_queries):
         model = database.create(permission=1, group=2)
 
@@ -324,7 +325,7 @@ class TestExpandGet:
                 },
             }
 
-    # select + m2m select
+    # selectm2m select
     def test_permission__two_sets__lists(self, database: capy.Database, django_assert_num_queries):
         model = database.create(permission=1, group=2)
 
@@ -341,8 +342,8 @@ class TestExpandGet:
                     "count": 2,
                     "next": None,
                     "previous": None,
-                    "first": "/group?limit=20&offset=0",
-                    "last": "/group?limit=20&offset=0",
+                    "first": f"/group?limit=20&offset=0&permissions={model.permission.id}",
+                    "last": f"/group?limit=20&offset=0&permissions={model.permission.id}",
                     "results": [
                         {
                             "id": model.group[0].id,
@@ -358,7 +359,7 @@ class TestExpandGet:
 
 
 class TestExpandFilter:
-    # count + select
+    # countselect
     def test_permission__default(self, database: capy.Database, django_assert_num_queries):
         model = database.create(permission=2, group=2)
 
@@ -386,7 +387,7 @@ class TestExpandFilter:
                 ],
             }
 
-    # count + select
+    # countselect
     def test_permission__two_sets__ids(self, database: capy.Database, django_assert_num_queries):
         model = database.create(permission=2, group=2)
 
@@ -422,7 +423,7 @@ class TestExpandFilter:
                 ],
             }
 
-    # count + select + m2m select * 2
+    # countselectm2m select * 2
     def test_permission__two_sets__lists(self, database: capy.Database, django_assert_num_queries):
         model = database.create(permission=2, group=2)
 
@@ -446,8 +447,8 @@ class TestExpandFilter:
                             "count": 2,
                             "next": None,
                             "previous": None,
-                            "first": "/group?limit=20&offset=0",
-                            "last": "/group?limit=20&offset=0",
+                            "first": f"/group?limit=20&offset=0&permissions={model.permission[0].id}",
+                            "last": f"/group?limit=20&offset=0&permissions={model.permission[0].id}",
                             "results": [
                                 {
                                     "id": model.group[0].id,
@@ -467,8 +468,8 @@ class TestExpandFilter:
                             "count": 2,
                             "next": None,
                             "previous": None,
-                            "first": "/group?limit=20&offset=0",
-                            "last": "/group?limit=20&offset=0",
+                            "first": f"/group?limit=20&offset=0&permissions={model.permission[1].id}",
+                            "last": f"/group?limit=20&offset=0&permissions={model.permission[1].id}",
                             "results": [
                                 {
                                     "id": model.group[0].id,
@@ -486,7 +487,7 @@ class TestExpandFilter:
 
 
 class TestSortBy:
-    # count + select
+    # countselect
     def test_permission__default(self, database: capy.Database, django_assert_num_queries):
         model = database.create(permission=2, group=2)
 
@@ -515,8 +516,358 @@ class TestSortBy:
             }
 
 
+# class TestGet:
+#     # countselect
+#     def test_permission__exact(self, database: capy.Database, django_assert_num_queries):
+#         model = database.create(permission=2, group=2)
+
+#         factory = APIRequestFactory()
+#         request = factory.get(f"/notes/547/?name={model.permission[0].name}")
+
+#         with django_assert_num_queries(2) as captured:
+#             serializer = PermissionSerializer(request=request)
+
+#             assert serializer.get(id=model.permission.id) == {
+#                 "count": 1,
+#                 "first": "/permission?limit=20&offset=0",
+#                 "last": "/permission?limit=20&offset=0",
+#                 "next": None,
+#                 "previous": None,
+#                 "results": [
+#                     {
+#                         "id": model.permission[0].id,
+#                         "name": model.permission[0].name,
+#                     },
+#                 ],
+#             }
+
+#     # countselect
+#     def test_permission__not_exact(self, database: capy.Database, django_assert_num_queries):
+#         model = database.create(permission=2, group=2)
+
+#         factory = APIRequestFactory()
+#         request = factory.get(f"/notes/547/?name!={model.permission[0].name}")
+
+#         with django_assert_num_queries(2) as captured:
+#             serializer = PermissionSerializer(request=request)
+
+#             assert serializer.get(id=model.permission.id) == {
+#                 "count": 1,
+#                 "first": "/permission?limit=20&offset=0",
+#                 "last": "/permission?limit=20&offset=0",
+#                 "next": None,
+#                 "previous": None,
+#                 "results": [
+#                     {
+#                         "id": model.permission[1].id,
+#                         "name": model.permission[1].name,
+#                     },
+#                 ],
+#             }
+
+
+#     # countselect
+#     def test_permission__iexact(self, database: capy.Database, django_assert_num_queries, fake: capy.Fake):
+#         model = database.create(permission=[{"name": fake.name().upper()} for _ in range(2)], group=2)
+
+#         factory = APIRequestFactory()
+#         request = factory.get(f"/notes/547/?name~={model.permission[0].name.lower()}")
+
+#         with django_assert_num_queries(2) as captured:
+#             serializer = PermissionSerializer(request=request)
+
+#             assert serializer.filter(id__in=[x.id for x in model.permission]) == {
+#                 "count": 1,
+#                 "first": "/permission?limit=20&offset=0",
+#                 "last": "/permission?limit=20&offset=0",
+#                 "next": None,
+#                 "previous": None,
+#                 "results": [
+#                     {
+#                         "id": model.permission[0].id,
+#                         "name": model.permission[0].name,
+#                     },
+#                 ],
+#             }
+
+#     # countselect
+#     def test_permission__not_iexact(self, database: capy.Database, django_assert_num_queries, fake: capy.Fake):
+#         model = database.create(permission=[{"name": fake.name().upper()} for _ in range(2)], group=2)
+
+#         factory = APIRequestFactory()
+#         request = factory.get(f"/notes/547/?name!~={model.permission[0].name.lower()}")
+
+#         with django_assert_num_queries(2) as captured:
+#             serializer = PermissionSerializer(request=request)
+
+#             assert serializer.filter(id__in=[x.id for x in model.permission]) == {
+#                 "count": 1,
+#                 "first": "/permission?limit=20&offset=0",
+#                 "last": "/permission?limit=20&offset=0",
+#                 "next": None,
+#                 "previous": None,
+#                 "results": [
+#                     {
+#                         "id": model.permission[1].id,
+#                         "name": model.permission[1].name,
+#                     },
+#                 ],
+#             }
+
+
+#     # countselect
+#     def test_user_model__gt(self, database: capy.Database, django_assert_num_queries, fake: capy.Fake):
+#         date_time = fake.date_time()
+#         model = database.create(user=[{"date_joined": date_time}, {"date_joined": date_time + timedelta(days=3)}])
+
+#         factory = APIRequestFactory()
+#         request = factory.get(f"/notes/547/?date_joined>{(date_time + timedelta(days=1)).isoformat()}")
+
+#         with django_assert_num_queries(2) as captured:
+#             serializer = UserSerializer(request=request)
+
+#             assert serializer.filter(id__in=[x.id for x in model.user]) == {
+#                 "count": 1,
+#                 "first": "/user?limit=20&offset=0",
+#                 "last": "/user?limit=20&offset=0",
+#                 "next": None,
+#                 "previous": None,
+#                 "results": [
+#                     {
+#                         "id": model.user[1].id,
+#                         "username": model.user[1].username,
+#                     },
+#                 ],
+#             }
+
+#     # countselect
+#     def test_user_model__gte(self, database: capy.Database, django_assert_num_queries, fake: capy.Fake):
+#         date_time = fake.date_time()
+#         model = database.create(user=[{"date_joined": date_time}, {"date_joined": date_time + timedelta(days=3)}])
+
+#         factory = APIRequestFactory()
+#         request = factory.get(f"/notes/547/?date_joined>={(date_time + timedelta(days=3)).isoformat()}")
+
+#         with django_assert_num_queries(2) as captured:
+#             serializer = UserSerializer(request=request)
+
+#             assert serializer.filter(id__in=[x.id for x in model.user]) == {
+#                 "count": 1,
+#                 "first": "/user?limit=20&offset=0",
+#                 "last": "/user?limit=20&offset=0",
+#                 "next": None,
+#                 "previous": None,
+#                 "results": [
+#                     {
+#                         "id": model.user[1].id,
+#                         "username": model.user[1].username,
+#                     },
+#                 ],
+#             }
+
+#     # countselect
+#     def test_user_model__lt(self, database: capy.Database, django_assert_num_queries, fake: capy.Fake):
+#         date_time = fake.date_time()
+#         model = database.create(user=[{"date_joined": date_time}, {"date_joined": date_time + timedelta(days=3)}])
+
+#         factory = APIRequestFactory()
+#         request = factory.get(f"/notes/547/?date_joined<{(date_time + timedelta(days=1)).isoformat()}")
+
+#         with django_assert_num_queries(2) as captured:
+#             serializer = UserSerializer(request=request)
+
+#             assert serializer.filter(id__in=[x.id for x in model.user]) == {
+#                 "count": 1,
+#                 "first": "/user?limit=20&offset=0",
+#                 "last": "/user?limit=20&offset=0",
+#                 "next": None,
+#                 "previous": None,
+#                 "results": [
+#                     {
+#                         "id": model.user[0].id,
+#                         "username": model.user[0].username,
+#                     },
+#                 ],
+#             }
+
+#     # countselect
+#     def test_user_model__lte(self, database: capy.Database, django_assert_num_queries, fake: capy.Fake):
+#         date_time = fake.date_time()
+#         model = database.create(user=[{"date_joined": date_time}, {"date_joined": date_time + timedelta(days=3)}])
+
+#         factory = APIRequestFactory()
+#         request = factory.get(f"/notes/547/?date_joined<={(date_time).isoformat()}")
+
+#         with django_assert_num_queries(2) as captured:
+#             serializer = UserSerializer(request=request)
+
+#             assert serializer.filter(id__in=[x.id for x in model.user]) == {
+#                 "count": 1,
+#                 "first": "/user?limit=20&offset=0",
+#                 "last": "/user?limit=20&offset=0",
+#                 "next": None,
+#                 "previous": None,
+#                 "results": [
+#                     {
+#                         "id": model.user[0].id,
+#                         "username": model.user[0].username,
+#                     },
+#                 ],
+#             }
+
+#     # countselect
+#     def test_user_model__not_gt(self, database: capy.Database, django_assert_num_queries, fake: capy.Fake):
+#         date_time = fake.date_time()
+#         model = database.create(user=[{"date_joined": date_time}, {"date_joined": date_time + timedelta(days=3)}])
+
+#         factory = APIRequestFactory()
+#         request = factory.get(f"/notes/547/?date_joined!>{(date_time + timedelta(days=1)).isoformat()}")
+
+#         with django_assert_num_queries(2) as captured:
+#             serializer = UserSerializer(request=request)
+
+#             assert serializer.filter(id__in=[x.id for x in model.user]) == {
+#                 "count": 1,
+#                 "first": "/user?limit=20&offset=0",
+#                 "last": "/user?limit=20&offset=0",
+#                 "next": None,
+#                 "previous": None,
+#                 "results": [
+#                     {
+#                         "id": model.user[0].id,
+#                         "username": model.user[0].username,
+#                     },
+#                 ],
+#             }
+
+#     # countselect
+#     def test_user_model__not_gte(self, database: capy.Database, django_assert_num_queries, fake: capy.Fake):
+#         date_time = fake.date_time()
+#         model = database.create(user=[{"date_joined": date_time}, {"date_joined": date_time + timedelta(days=3)}])
+
+#         factory = APIRequestFactory()
+#         request = factory.get(f"/notes/547/?date_joined!>={(date_time + timedelta(days=3)).isoformat()}")
+
+#         with django_assert_num_queries(2) as captured:
+#             serializer = UserSerializer(request=request)
+
+#             assert serializer.filter(id__in=[x.id for x in model.user]) == {
+#                 "count": 1,
+#                 "first": "/user?limit=20&offset=0",
+#                 "last": "/user?limit=20&offset=0",
+#                 "next": None,
+#                 "previous": None,
+#                 "results": [
+#                     {
+#                         "id": model.user[0].id,
+#                         "username": model.user[0].username,
+#                     },
+#                 ],
+#             }
+
+#     # countselect
+#     def test_user_model__not_lt(self, database: capy.Database, django_assert_num_queries, fake: capy.Fake):
+#         date_time = fake.date_time()
+#         model = database.create(user=[{"date_joined": date_time}, {"date_joined": date_time + timedelta(days=3)}])
+
+#         factory = APIRequestFactory()
+#         request = factory.get(f"/notes/547/?date_joined!<{(date_time + timedelta(days=1)).isoformat()}")
+
+#         with django_assert_num_queries(2) as captured:
+#             serializer = UserSerializer(request=request)
+
+#             assert serializer.filter(id__in=[x.id for x in model.user]) == {
+#                 "count": 1,
+#                 "first": "/user?limit=20&offset=0",
+#                 "last": "/user?limit=20&offset=0",
+#                 "next": None,
+#                 "previous": None,
+#                 "results": [
+#                     {
+#                         "id": model.user[1].id,
+#                         "username": model.user[1].username,
+#                     },
+#                 ],
+#             }
+
+#     # countselect
+#     def test_user_model__not_lte(self, database: capy.Database, django_assert_num_queries, fake: capy.Fake):
+#         date_time = fake.date_time()
+#         model = database.create(user=[{"date_joined": date_time}, {"date_joined": date_time + timedelta(days=3)}])
+
+#         factory = APIRequestFactory()
+#         request = factory.get(f"/notes/547/?date_joined!<={(date_time).isoformat()}")
+
+#         with django_assert_num_queries(2) as captured:
+#             serializer = UserSerializer(request=request)
+
+#             assert serializer.filter(id__in=[x.id for x in model.user]) == {
+#                 "count": 1,
+#                 "first": "/user?limit=20&offset=0",
+#                 "last": "/user?limit=20&offset=0",
+#                 "next": None,
+#                 "previous": None,
+#                 "results": [
+#                     {
+#                         "id": model.user[1].id,
+#                         "username": model.user[1].username,
+#                     },
+#                 ],
+#             }
+
+#     # countselect
+#     def test_user_model__lookup_startswith(self, database: capy.Database, django_assert_num_queries, fake: capy.Fake):
+#         model = database.create(user=2)
+
+#         factory = APIRequestFactory()
+#         request = factory.get(f"/notes/547/?username[startswith]={model.user[0].username[:3]}")
+
+#         with django_assert_num_queries(2) as captured:
+#             serializer = UserSerializer(request=request)
+
+#             assert serializer.filter(id__in=[x.id for x in model.user]) == {
+#                 "count": 1,
+#                 "first": "/user?limit=20&offset=0",
+#                 "last": "/user?limit=20&offset=0",
+#                 "next": None,
+#                 "previous": None,
+#                 "results": [
+#                     {
+#                         "id": model.user[0].id,
+#                         "username": model.user[0].username,
+#                     },
+#                 ],
+#             }
+
+#     # countselect
+#     def test_user_model__not_lookup_startswith(
+#         self, database: capy.Database, django_assert_num_queries, fake: capy.Fake
+#     ):
+#         model = database.create(user=2)
+
+#         factory = APIRequestFactory()
+#         request = factory.get(f"/notes/547/?username![startswith]={model.user[0].username[:3]}")
+
+#         with django_assert_num_queries(2) as captured:
+#             serializer = UserSerializer(request=request)
+
+#             assert serializer.filter(id__in=[x.id for x in model.user]) == {
+#                 "count": 1,
+#                 "first": "/user?limit=20&offset=0",
+#                 "last": "/user?limit=20&offset=0",
+#                 "next": None,
+#                 "previous": None,
+#                 "results": [
+#                     {
+#                         "id": model.user[1].id,
+#                         "username": model.user[1].username,
+#                     },
+#                 ],
+#             }
+
+
 class TestFilter:
-    # count + select
+    # countselect
     def test_permission__exact(self, database: capy.Database, django_assert_num_queries):
         model = database.create(permission=2, group=2)
 
@@ -540,7 +891,7 @@ class TestFilter:
                 ],
             }
 
-    # count + select
+    # countselect
     def test_permission__not_exact(self, database: capy.Database, django_assert_num_queries):
         model = database.create(permission=2, group=2)
 
@@ -564,7 +915,7 @@ class TestFilter:
                 ],
             }
 
-    # count + select
+    # countselect
     def test_permission__in(self, database: capy.Database, django_assert_num_queries):
         model = database.create(permission=2, group=2)
 
@@ -592,7 +943,7 @@ class TestFilter:
                 ],
             }
 
-    # count + select
+    # countselect
     def test_permission__not_in(self, database: capy.Database, django_assert_num_queries):
         model = database.create(permission=2, group=2)
 
@@ -611,7 +962,7 @@ class TestFilter:
                 "results": [],
             }
 
-    # count + select
+    # countselect
     def test_permission__iexact(self, database: capy.Database, django_assert_num_queries, fake: capy.Fake):
         model = database.create(permission=[{"name": fake.name().upper()} for _ in range(2)], group=2)
 
@@ -635,7 +986,7 @@ class TestFilter:
                 ],
             }
 
-    # count + select
+    # countselect
     def test_permission__not_iexact(self, database: capy.Database, django_assert_num_queries, fake: capy.Fake):
         model = database.create(permission=[{"name": fake.name().upper()} for _ in range(2)], group=2)
 
@@ -659,7 +1010,7 @@ class TestFilter:
                 ],
             }
 
-    # count + select
+    # countselect
     def test_permission__iexact__in(self, database: capy.Database, django_assert_num_queries, fake: capy.Fake):
         model = database.create(permission=[{"name": fake.name().upper()} for _ in range(2)], group=2)
 
@@ -689,7 +1040,7 @@ class TestFilter:
                 ],
             }
 
-    # count + select
+    # countselect
     def test_permission__not_iexact__in(self, database: capy.Database, django_assert_num_queries, fake: capy.Fake):
         model = database.create(permission=[{"name": fake.name().upper()} for _ in range(2)], group=2)
 
@@ -710,7 +1061,7 @@ class TestFilter:
                 "results": [],
             }
 
-    # count + select
+    # countselect
     def test_user_model__gt(self, database: capy.Database, django_assert_num_queries, fake: capy.Fake):
         date_time = fake.date_time()
         model = database.create(user=[{"date_joined": date_time}, {"date_joined": date_time + timedelta(days=3)}])
@@ -735,7 +1086,7 @@ class TestFilter:
                 ],
             }
 
-    # count + select
+    # countselect
     def test_user_model__gte(self, database: capy.Database, django_assert_num_queries, fake: capy.Fake):
         date_time = fake.date_time()
         model = database.create(user=[{"date_joined": date_time}, {"date_joined": date_time + timedelta(days=3)}])
@@ -760,7 +1111,7 @@ class TestFilter:
                 ],
             }
 
-    # count + select
+    # countselect
     def test_user_model__lt(self, database: capy.Database, django_assert_num_queries, fake: capy.Fake):
         date_time = fake.date_time()
         model = database.create(user=[{"date_joined": date_time}, {"date_joined": date_time + timedelta(days=3)}])
@@ -785,7 +1136,7 @@ class TestFilter:
                 ],
             }
 
-    # count + select
+    # countselect
     def test_user_model__lte(self, database: capy.Database, django_assert_num_queries, fake: capy.Fake):
         date_time = fake.date_time()
         model = database.create(user=[{"date_joined": date_time}, {"date_joined": date_time + timedelta(days=3)}])
@@ -810,7 +1161,7 @@ class TestFilter:
                 ],
             }
 
-    # count + select
+    # countselect
     def test_user_model__not_gt(self, database: capy.Database, django_assert_num_queries, fake: capy.Fake):
         date_time = fake.date_time()
         model = database.create(user=[{"date_joined": date_time}, {"date_joined": date_time + timedelta(days=3)}])
@@ -835,7 +1186,7 @@ class TestFilter:
                 ],
             }
 
-    # count + select
+    # countselect
     def test_user_model__not_gte(self, database: capy.Database, django_assert_num_queries, fake: capy.Fake):
         date_time = fake.date_time()
         model = database.create(user=[{"date_joined": date_time}, {"date_joined": date_time + timedelta(days=3)}])
@@ -860,7 +1211,7 @@ class TestFilter:
                 ],
             }
 
-    # count + select
+    # countselect
     def test_user_model__not_lt(self, database: capy.Database, django_assert_num_queries, fake: capy.Fake):
         date_time = fake.date_time()
         model = database.create(user=[{"date_joined": date_time}, {"date_joined": date_time + timedelta(days=3)}])
@@ -885,7 +1236,7 @@ class TestFilter:
                 ],
             }
 
-    # count + select
+    # countselect
     def test_user_model__not_lte(self, database: capy.Database, django_assert_num_queries, fake: capy.Fake):
         date_time = fake.date_time()
         model = database.create(user=[{"date_joined": date_time}, {"date_joined": date_time + timedelta(days=3)}])
@@ -910,7 +1261,7 @@ class TestFilter:
                 ],
             }
 
-    # count + select
+    # countselect
     def test_user_model__lookup_startswith(self, database: capy.Database, django_assert_num_queries, fake: capy.Fake):
         model = database.create(user=2)
 
@@ -934,7 +1285,7 @@ class TestFilter:
                 ],
             }
 
-    # count + select
+    # countselect
     def test_user_model__not_lookup_startswith(
         self, database: capy.Database, django_assert_num_queries, fake: capy.Fake
     ):
@@ -961,8 +1312,8 @@ class TestFilter:
             }
 
 
-class TestFilterM2M:
-    # count + select
+class TestFilterM2MQuery:
+    # countselect
     def test_permission__exact(self, database: capy.Database, django_assert_num_queries):
         model = database.create(permission=2, group=2)
         model.group[0].permissions.set([model.permission[0]])
@@ -988,7 +1339,7 @@ class TestFilterM2M:
                 ],
             }
 
-    # count + select
+    # countselect
     def test_permission__not_exact(self, database: capy.Database, django_assert_num_queries):
         model = database.create(permission=2, group=2)
         model.group[0].permissions.set([model.permission[0]])
@@ -1014,7 +1365,7 @@ class TestFilterM2M:
                 ],
             }
 
-    # count + select
+    # countselect
     def test_permission__iexact(self, database: capy.Database, django_assert_num_queries, fake: capy.Fake):
         model = database.create(permission=2, group=[{"name": fake.name().upper()} for _ in range(2)])
         model.group[0].permissions.set([model.permission[0]])
@@ -1040,7 +1391,7 @@ class TestFilterM2M:
                 ],
             }
 
-    # count + select
+    # countselect
     def test_permission__not_iexact(self, database: capy.Database, django_assert_num_queries, fake: capy.Fake):
         model = database.create(permission=2, group=[{"name": fake.name().upper()} for _ in range(2)])
         model.group[0].permissions.set([model.permission[0]])
@@ -1066,7 +1417,7 @@ class TestFilterM2M:
                 ],
             }
 
-    # count + select
+    # countselect
     def test_permission__lookup(self, database: capy.Database, django_assert_num_queries, fake: capy.Fake):
         model = database.create(permission=2, group=2)
         model.group[0].permissions.set([model.permission[0]])
@@ -1092,7 +1443,7 @@ class TestFilterM2M:
                 ],
             }
 
-    # count + select
+    # countselect
     def test_permission__not_lookup(self, database: capy.Database, django_assert_num_queries, fake: capy.Fake):
         model = database.create(permission=2, group=2)
         model.group[0].permissions.set([model.permission[0]])
@@ -1118,7 +1469,7 @@ class TestFilterM2M:
                 ],
             }
 
-    # count + select
+    # countselect
     def test_permission__in(self, database: capy.Database, django_assert_num_queries, fake: capy.Fake):
         model = database.create(permission=2, group=2)
         model.group[0].permissions.set([model.permission[0]])
@@ -1148,7 +1499,7 @@ class TestFilterM2M:
                 ],
             }
 
-    # count + select
+    # countselect
     def test_permission__not_in(self, database: capy.Database, django_assert_num_queries, fake: capy.Fake):
         model = database.create(permission=2, group=2)
         model.group[0].permissions.set([model.permission[0]])
@@ -1169,7 +1520,7 @@ class TestFilterM2M:
                 "results": [],
             }
 
-    # count + select
+    # countselect
     def test_permission__iexact__in(self, database: capy.Database, django_assert_num_queries, fake: capy.Fake):
         model = database.create(permission=2, group=[{"name": fake.name().upper()} for _ in range(2)])
         model.group[0].permissions.set([model.permission[0]])
@@ -1199,7 +1550,7 @@ class TestFilterM2M:
                 ],
             }
 
-    # count + select
+    # countselect
     def test_permission__iexact__not_in(self, database: capy.Database, django_assert_num_queries, fake: capy.Fake):
         model = database.create(permission=2, group=[{"name": fake.name().upper()} for _ in range(2)])
         model.group[0].permissions.set([model.permission[0]])
@@ -1221,8 +1572,8 @@ class TestFilterM2M:
             }
 
 
-class TestFilterM2O:
-    # count + select
+class TestFilterM2OQuery:
+    # countselect
     def test_permission__exact(self, database: capy.Database, django_assert_num_queries):
         model = database.create(permission=2, content_type=2)
 
@@ -1252,7 +1603,7 @@ class TestFilterM2O:
                 ],
             }
 
-    # count + select
+    # countselect
     def test_permission__not_exact(self, database: capy.Database, django_assert_num_queries):
         model = database.create(permission=2, content_type=2)
 
@@ -1282,7 +1633,7 @@ class TestFilterM2O:
                 ],
             }
 
-    # count + select
+    # countselect
     def test_permission__iexact(self, database: capy.Database, django_assert_num_queries, fake: capy.Fake):
         model = database.create(permission=2, content_type=[{"app_label": fake.name().upper()} for _ in range(2)])
 
@@ -1312,7 +1663,7 @@ class TestFilterM2O:
                 ],
             }
 
-    # count + select
+    # countselect
     def test_permission__not_iexact(self, database: capy.Database, django_assert_num_queries, fake: capy.Fake):
         model = database.create(permission=2, content_type=[{"app_label": fake.name().upper()} for _ in range(2)])
 
@@ -1342,7 +1693,7 @@ class TestFilterM2O:
                 ],
             }
 
-    # count + select
+    # countselect
     def test_permission__lookup(self, database: capy.Database, django_assert_num_queries, fake: capy.Fake):
         model = database.create(permission=2, content_type=[{"app_label": fake.name().upper()} for _ in range(2)])
 
@@ -1372,7 +1723,7 @@ class TestFilterM2O:
                 ],
             }
 
-    # count + select
+    # countselect
     def test_permission__not_lookup(self, database: capy.Database, django_assert_num_queries, fake: capy.Fake):
         model = database.create(permission=2, content_type=2)
 
@@ -1402,7 +1753,7 @@ class TestFilterM2O:
                 ],
             }
 
-    # count + select
+    # countselect
     def test_permission__in(self, database: capy.Database, django_assert_num_queries, fake: capy.Fake):
         model = database.create(permission=2, content_type=2)
 
@@ -1438,7 +1789,7 @@ class TestFilterM2O:
                 ],
             }
 
-    # count + select
+    # countselect
     def test_permission__not_in(self, database: capy.Database, django_assert_num_queries, fake: capy.Fake):
         model = database.create(permission=2, content_type=2)
 
@@ -1465,7 +1816,7 @@ class TestFilterM2O:
                 "results": [],
             }
 
-    # count + select
+    # countselect
     def test_permission__iexact__in(self, database: capy.Database, django_assert_num_queries, fake: capy.Fake):
         model = database.create(permission=2, content_type=[{"app_label": fake.name().upper()} for _ in range(2)])
 
@@ -1501,7 +1852,7 @@ class TestFilterM2O:
                 ],
             }
 
-    # count + select
+    # countselect
     def test_permission__iexact__not_in(self, database: capy.Database, django_assert_num_queries, fake: capy.Fake):
         model = database.create(permission=2, content_type=[{"app_label": fake.name().upper()} for _ in range(2)])
 
@@ -1526,4 +1877,423 @@ class TestFilterM2O:
                 "next": None,
                 "previous": None,
                 "results": [],
+            }
+
+
+class TestHelp:
+    # countselect
+    def test_permission__exact(self, database: capy.Database, django_assert_num_queries):
+        model = database.create(permission=2, content_type=2)
+
+        model.permission[0].content_type = model.content_type[0]
+        model.permission[0].save()
+
+        model.permission[1].content_type = model.content_type[1]
+        model.permission[1].save()
+
+        factory = APIRequestFactory()
+        request = factory.get(f"/notes/547/?help")
+
+        with django_assert_num_queries(0) as captured:
+            serializer = PermissionSerializer(request=request)
+
+            assert serializer.filter(id__in=[x.id for x in model.permission]) == {
+                "filters": [
+                    "codename",
+                    "content_type",
+                    "content_type.app_label",
+                    "groups",
+                    "groups.name",
+                    "groups.permissions",
+                    "groups.permissions.codename",
+                    "groups.permissions.content_type",
+                    "groups.permissions.content_type.app_label",
+                    "groups.permissions.groups",
+                    "groups.permissions.name",
+                    "name",
+                ],
+                "sets": [
+                    {
+                        "fields": [
+                            {
+                                "attributes": {
+                                    "blank": True,
+                                    "default": None,
+                                    "editable": True,
+                                    "help_text": "",
+                                    "is_relation": False,
+                                    "null": False,
+                                    "primary_key": True,
+                                    "type": "AutoField",
+                                },
+                                "name": "id",
+                            },
+                            {
+                                "attributes": {
+                                    "blank": False,
+                                    "choices": 255,
+                                    "default": None,
+                                    "editable": True,
+                                    "help_text": "",
+                                    "is_relation": False,
+                                    "null": False,
+                                    "primary_key": False,
+                                    "type": "CharField",
+                                },
+                                "name": "name",
+                            },
+                        ],
+                        "relationships": [],
+                        "set": "default",
+                    },
+                    {
+                        "fields": [
+                            {
+                                "attributes": {
+                                    "blank": False,
+                                    "choices": 100,
+                                    "default": None,
+                                    "editable": True,
+                                    "help_text": "",
+                                    "is_relation": False,
+                                    "null": False,
+                                    "primary_key": False,
+                                    "type": "CharField",
+                                },
+                                "name": "codename",
+                            },
+                        ],
+                        "relationships": [],
+                        "set": "extra",
+                    },
+                    {
+                        "fields": [
+                            {
+                                "attributes": {
+                                    "blank": False,
+                                    "default": None,
+                                    "editable": True,
+                                    "help_text": "",
+                                    "is_relation": True,
+                                    "null": False,
+                                    "primary_key": False,
+                                    "type": "ForeignKey",
+                                },
+                                "name": "content_type",
+                                "type": "pk",
+                            },
+                        ],
+                        "relationships": [],
+                        "set": "ids",
+                    },
+                    {
+                        "fields": [],
+                        "relationships": [],
+                        "set": "lists",
+                    },
+                    {
+                        "fields": [],
+                        "relationships": [
+                            {
+                                "metadata": {
+                                    "blank": False,
+                                    "default": None,
+                                    "editable": True,
+                                    "help_text": "",
+                                    "is_relation": True,
+                                    "null": False,
+                                    "primary_key": False,
+                                    "type": "contenttypes.ContentType",
+                                },
+                                "name": "content_type",
+                                "type": "object",
+                                "sets": [
+                                    {
+                                        "fields": [
+                                            {
+                                                "attributes": {
+                                                    "blank": True,
+                                                    "default": None,
+                                                    "editable": True,
+                                                    "help_text": "",
+                                                    "is_relation": False,
+                                                    "null": False,
+                                                    "primary_key": True,
+                                                    "type": "AutoField",
+                                                },
+                                                "name": "id",
+                                            },
+                                            {
+                                                "attributes": {
+                                                    "blank": False,
+                                                    "choices": 100,
+                                                    "default": None,
+                                                    "editable": True,
+                                                    "help_text": "",
+                                                    "is_relation": False,
+                                                    "null": False,
+                                                    "primary_key": False,
+                                                    "type": "CharField",
+                                                },
+                                                "name": "app_label",
+                                            },
+                                        ],
+                                        "relationships": [],
+                                        "set": "default",
+                                    },
+                                ],
+                            },
+                        ],
+                        "set": "expand_ids",
+                    },
+                    {
+                        "fields": [],
+                        "relationships": [
+                            {
+                                "metadata": {
+                                    "blank": True,
+                                    "default": None,
+                                    "editable": True,
+                                    "help_text": "",
+                                    "is_relation": True,
+                                    "null": False,
+                                    "primary_key": False,
+                                    "type": "auth.Group",
+                                },
+                                "name": "groups",
+                                "type": "list",
+                                "sets": [
+                                    {
+                                        "fields": [
+                                            {
+                                                "attributes": {
+                                                    "blank": True,
+                                                    "default": None,
+                                                    "editable": True,
+                                                    "help_text": "",
+                                                    "is_relation": False,
+                                                    "null": False,
+                                                    "primary_key": True,
+                                                    "type": "AutoField",
+                                                },
+                                                "name": "id",
+                                            },
+                                            {
+                                                "attributes": {
+                                                    "blank": False,
+                                                    "choices": 150,
+                                                    "default": None,
+                                                    "editable": True,
+                                                    "help_text": "",
+                                                    "is_relation": False,
+                                                    "null": False,
+                                                    "primary_key": False,
+                                                    "type": "CharField",
+                                                },
+                                                "name": "name",
+                                            },
+                                        ],
+                                        "relationships": [],
+                                        "set": "default",
+                                    },
+                                    {
+                                        "fields": [],
+                                        "relationships": [],
+                                        "set": "lists",
+                                    },
+                                    {
+                                        "fields": [],
+                                        "relationships": [
+                                            {
+                                                "metadata": {
+                                                    "blank": True,
+                                                    "default": None,
+                                                    "editable": True,
+                                                    "help_text": "",
+                                                    "is_relation": True,
+                                                    "null": False,
+                                                    "primary_key": False,
+                                                    "type": "auth.Permission",
+                                                },
+                                                "name": "permissions",
+                                                "sets": [
+                                                    {
+                                                        "fields": [
+                                                            {
+                                                                "attributes": {
+                                                                    "blank": True,
+                                                                    "default": None,
+                                                                    "editable": True,
+                                                                    "help_text": "",
+                                                                    "is_relation": False,
+                                                                    "null": False,
+                                                                    "primary_key": True,
+                                                                    "type": "AutoField",
+                                                                },
+                                                                "name": "id",
+                                                            },
+                                                            {
+                                                                "attributes": {
+                                                                    "blank": False,
+                                                                    "choices": 255,
+                                                                    "default": None,
+                                                                    "editable": True,
+                                                                    "help_text": "",
+                                                                    "is_relation": False,
+                                                                    "null": False,
+                                                                    "primary_key": False,
+                                                                    "type": "CharField",
+                                                                },
+                                                                "name": "name",
+                                                            },
+                                                        ],
+                                                        "relationships": [],
+                                                        "set": "default",
+                                                    },
+                                                    {
+                                                        "fields": [
+                                                            {
+                                                                "attributes": {
+                                                                    "blank": False,
+                                                                    "choices": 100,
+                                                                    "default": None,
+                                                                    "editable": True,
+                                                                    "help_text": "",
+                                                                    "is_relation": False,
+                                                                    "null": False,
+                                                                    "primary_key": False,
+                                                                    "type": "CharField",
+                                                                },
+                                                                "name": "codename",
+                                                            },
+                                                            {
+                                                                "attributes": {
+                                                                    "blank": False,
+                                                                    "default": None,
+                                                                    "editable": True,
+                                                                    "help_text": "",
+                                                                    "is_relation": True,
+                                                                    "null": False,
+                                                                    "primary_key": False,
+                                                                    "type": "ForeignKey",
+                                                                },
+                                                                "name": "content_type",
+                                                                "type": "pk",
+                                                            },
+                                                        ],
+                                                        "relationships": [],
+                                                        "set": "extra",
+                                                    },
+                                                    {
+                                                        "fields": [
+                                                            {
+                                                                "attributes": {
+                                                                    "blank": False,
+                                                                    "default": None,
+                                                                    "editable": True,
+                                                                    "help_text": "",
+                                                                    "is_relation": True,
+                                                                    "null": False,
+                                                                    "primary_key": False,
+                                                                    "type": "ForeignKey",
+                                                                },
+                                                                "name": "content_type",
+                                                                "type": "pk",
+                                                            },
+                                                        ],
+                                                        "relationships": [],
+                                                        "set": "ids",
+                                                    },
+                                                    {
+                                                        "fields": [],
+                                                        "relationships": [],
+                                                        "set": "lists",
+                                                    },
+                                                    {
+                                                        "fields": [],
+                                                        "relationships": [
+                                                            {
+                                                                "metadata": {
+                                                                    "blank": False,
+                                                                    "default": None,
+                                                                    "editable": True,
+                                                                    "help_text": "",
+                                                                    "is_relation": True,
+                                                                    "null": False,
+                                                                    "primary_key": False,
+                                                                    "type": "contenttypes.ContentType",
+                                                                },
+                                                                "name": "content_type",
+                                                                "sets": [
+                                                                    {
+                                                                        "fields": [
+                                                                            {
+                                                                                "attributes": {
+                                                                                    "blank": True,
+                                                                                    "default": None,
+                                                                                    "editable": True,
+                                                                                    "help_text": "",
+                                                                                    "is_relation": False,
+                                                                                    "null": False,
+                                                                                    "primary_key": True,
+                                                                                    "type": "AutoField",
+                                                                                },
+                                                                                "name": "id",
+                                                                            },
+                                                                            {
+                                                                                "attributes": {
+                                                                                    "blank": False,
+                                                                                    "choices": 100,
+                                                                                    "default": None,
+                                                                                    "editable": True,
+                                                                                    "help_text": "",
+                                                                                    "is_relation": False,
+                                                                                    "null": False,
+                                                                                    "primary_key": False,
+                                                                                    "type": "CharField",
+                                                                                },
+                                                                                "name": "app_label",
+                                                                            },
+                                                                        ],
+                                                                        "relationships": [],
+                                                                        "set": "default",
+                                                                    },
+                                                                ],
+                                                                "type": "object",
+                                                            },
+                                                        ],
+                                                        "set": "expand_ids",
+                                                    },
+                                                    {
+                                                        "fields": [],
+                                                        "relationships": [
+                                                            {
+                                                                "metadata": {
+                                                                    "blank": True,
+                                                                    "default": None,
+                                                                    "editable": True,
+                                                                    "help_text": "",
+                                                                    "is_relation": True,
+                                                                    "null": False,
+                                                                    "primary_key": False,
+                                                                    "type": "auth.Group",
+                                                                },
+                                                                "name": "groups",
+                                                                "type": "list",
+                                                            },
+                                                        ],
+                                                        "set": "expand_lists",
+                                                    },
+                                                ],
+                                                "type": "list",
+                                            },
+                                        ],
+                                        "set": "expand_lists",
+                                    },
+                                ],
+                            },
+                        ],
+                        "set": "expand_lists",
+                    },
+                ],
             }

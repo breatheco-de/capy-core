@@ -57,6 +57,7 @@ dependencies = [
   "psycopg2",
   "python-dotenv",
   "langcodes",
+  "django-redis",
 ]
 [tool.hatch.envs.default.scripts]
 test = "pytest {args:tests} --nomigrations --durations=1"
@@ -89,7 +90,7 @@ tests = ["tests", "*/capyc/tests"]
 exclude_lines = ["no cov", "if __name__ == .__main__.:", "if TYPE_CHECKING:"]
 
 [project.optional-dependencies]
-django = ["django", "djangorestframework", "adrf"]
+django = ["django", "djangorestframework", "adrf", "django-redis"]
 pytest = ["numpy", "Pillow", "pytz"]
 
 [tool.black]
