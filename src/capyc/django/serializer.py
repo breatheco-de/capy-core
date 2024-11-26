@@ -1,4 +1,5 @@
 import base64
+import json
 import math
 import re
 from copy import copy
@@ -64,8 +65,9 @@ from django.db.models.fields.related_descriptors import (
     ReverseOneToOneDescriptor,
 )
 from django.db.models.query_utils import DeferredAttribute
-from django.http import HttpRequest
+from django.http import HttpRequest, HttpResponse
 
+from capyc.django.cache import get_cache, set_cache
 from capyc.rest_framework.exceptions import ValidationException
 
 __all__ = ["Serializer"]
@@ -369,28 +371,6 @@ class ModelCache:
 
 MODEL_CACHE: dict[str, ModelCache] = {}
 MODEL_REL_CACHE: dict[str, dict[str, FieldRelatedDescriptor]] = {}
-
-
-@overload
-def get_cache(key: str) -> ModelCache:
-    pass
-
-
-@overload
-def get_cache() -> dict[str, ModelCache]:
-    pass
-
-
-def get_cache(key: Optional[str] = None) -> dict[str, ModelCache] | ModelCache:
-    cache: dict[str, ModelCache] = {}
-
-    if key is None:
-        return copy(MODEL_CACHE[key])
-
-    for key in MODEL_CACHE:
-        cache[key] = copy(MODEL_CACHE[key])
-
-    return cache
 
 
 class ExpandSets(TypedDict):
@@ -752,6 +732,8 @@ class SerializerMetaBuilder:
 class Serializer(SerializerMetaBuilder):
     _serializer_instances: dict[str, Type["Serializer"]]
     sort_by = "pk"
+    ttl: int | None = None
+    cache_control: str | None = None
 
     def _prefetch(self, qs: QuerySet):
         annotated = {}
@@ -956,15 +938,6 @@ class Serializer(SerializerMetaBuilder):
             )
 
         return obj
-
-    # # asdasdsad
-    # def metadata(self, depth: int = 1):
-    #     return {
-    #         "depth": self.depth,
-    #         "fields": self._field_list,
-    #         "ids": self._id_list,
-    #         "m2m": self._m2m_list,
-    #     }
 
     @classmethod
     def _get_query_value(
@@ -1337,6 +1310,7 @@ class Serializer(SerializerMetaBuilder):
 
     @classmethod
     def help(cls, depth: Optional[int] = None):
+        original_depth = depth
 
         def get_field_info(field: FieldDescriptor):
             attributes = {
@@ -1480,27 +1454,76 @@ class Serializer(SerializerMetaBuilder):
 
         result = {"sets": sets, "filters": sorted([*cls.filters, *inherited_filters])}
 
+        if original_depth is None:
+            return HttpResponse(json.dumps(result), status=200, headers={"Content-Type": "application/json"})
+
         return result
 
-    def filter(self, **kwargs: Any) -> List[dict[str, Any]] | dict[str, Any]:
+    def get_model_path(self):
+        return f"{self.model._meta.app_label}.{self.model.__name__}"
 
-        for x in (self.request.META.get("QUERY_STRING") or "").split("&"):
-            if x == "help":
-                return self.help()
+    def filter(self, **kwargs: Any) -> List[dict[str, Any]] | dict[str, Any]:
+        self._verify_headers()
+
+        if "help" in self.request.META.get("QUERY_STRING"):
+            for x in (self.request.META.get("QUERY_STRING") or "").split("&"):
+                if x == "help":
+                    return self.help()
+
+        cache = get_cache(
+            key=self.get_model_path(),
+            params=kwargs,
+            query=self.request.META.get("QUERY_STRING").split("&"),
+            headers=self.request.headers,
+        )
+        if cache:
+            return cache
 
         self._set_fields()
         qs = self.model.objects.filter(**kwargs).order_by(self.sort_by)
         qs = self._query_filter(qs)
         qs = self._prefetch(qs)
-        return self._wraps_pagination(qs)
+
+        return set_cache(
+            key=self.get_model_path(),
+            value=self._wraps_pagination(qs),
+            ttl=self.ttl,
+            params=kwargs,
+            query=self.request.META.get("QUERY_STRING").split("&"),
+            headers=self.request.headers,
+            cache_control=self.cache_control,
+        )
 
     @sync_to_async
     def afilter(self, **kwargs: Any) -> List[dict[str, Any]]:
         return self.filter(**kwargs)
 
-    def get(self, **kwargs: Any) -> dict[str, Any] | None:
-        self._set_fields()
+    def _verify_headers(self):
+        accept = self.request.headers.get("Accept", "application/json")
+        for x in ["application/json"]:
+            if x in accept:
+                return
 
+        raise ValidationException("Accept header must be application/json")
+
+    def get(self, **kwargs: Any) -> dict[str, Any] | None:
+        self._verify_headers()
+
+        if "help" in self.request.META.get("QUERY_STRING"):
+            for x in (self.request.META.get("QUERY_STRING") or "").split("&"):
+                if x == "help":
+                    return self.help()
+
+        cache = get_cache(
+            key=self.get_model_path(),
+            params=kwargs,
+            query=self.request.META.get("QUERY_STRING").split("&"),
+            headers=self.request.headers,
+        )
+        if cache:
+            return cache
+
+        self._set_fields()
         qs = self.model.objects.filter(**kwargs).order_by(self.sort_by)
         qs = self._query_filter(qs)
         qs = self._prefetch(qs)
@@ -1508,7 +1531,15 @@ class Serializer(SerializerMetaBuilder):
         if qs is None:
             return None
 
-        return self._serialize(qs)
+        return set_cache(
+            key=self.get_model_path(),
+            value=self._serialize(qs),
+            ttl=self.ttl,
+            params=kwargs,
+            query=self.request.META.get("QUERY_STRING").split("&"),
+            headers=self.request.headers,
+            cache_control=self.cache_control,
+        )
 
     @sync_to_async
     def aget(self, **kwargs: Any) -> dict[str, Any] | None:

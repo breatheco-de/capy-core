@@ -58,6 +58,8 @@ dependencies = [
   "python-dotenv",
   "langcodes",
   "django-redis",
+  "brotli",
+  "zstandard",
 ]
 [tool.hatch.envs.default.scripts]
 test = "pytest {args:tests} --nomigrations --durations=1"
@@ -90,7 +92,15 @@ tests = ["tests", "*/capyc/tests"]
 exclude_lines = ["no cov", "if __name__ == .__main__.:", "if TYPE_CHECKING:"]
 
 [project.optional-dependencies]
-django = ["django", "djangorestframework", "adrf", "django-redis"]
+django = [
+  "django",
+  "djangorestframework",
+  "adrf",
+  "django-redis",
+  "circuitbreaker",
+  "brotli",
+  "zstandard",
+]
 pytest = ["numpy", "Pillow", "pytz"]
 
 [tool.black]
