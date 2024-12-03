@@ -2,6 +2,8 @@
 
 Capy Serializers supports field sets, you can set `sets` attribute in the serializer, by default the fields provided in `default` set always are included in the response.
 
+In contract with `OData`, the `sets` parameter determines the included and expanded fields in the response.
+
 ## Request
 
 ```http
