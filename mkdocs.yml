@@ -36,6 +36,20 @@ nav:
       - "feature-flags/variant.md"
       - "feature-flags/flags-file.md"
       - "feature-flags/reading-flags.md"
+  - Serializers:
+      - "serializers/introduction.md"
+      - "serializers/field-sets.md"
+      - "serializers/fields-overrides.md"
+      - "serializers/query-params.md"
+      - "serializers/pagination.md"
+      - "serializers/sort-by.md"
+      - "serializers/help.md"
+      - "serializers/compression.md"
+      - "serializers/cache.md"
+      - "serializers/cache-ttl.md"
+      - "serializers/cache-control.md"
+      - "serializers/query-optimizations.md"
+      - "serializers/query-depth.md"
   - Exceptions:
       - "exceptions/validation-exception.md"
       - "exceptions/payment-exception.md"
@@ -43,6 +57,8 @@ nav:
       - "changelog/v1.0.0.md"
       - "changelog/v1.0.3.md"
       - "changelog/v1.1.0.md"
+      - "changelog/v1.2.0.md"
+      - "changelog/v1.2.1.md"
   - Fixtures:
       - circuitbreaker:
           - "fixtures/circuitbreaker/dont-close-the-circuit.md"

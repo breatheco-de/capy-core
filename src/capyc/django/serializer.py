@@ -436,7 +436,31 @@ class SerializerMetaBuilder:
             else:
                 field = field.related
 
-            queryattr = field.attname
+            if hasattr(field, "attname"):
+                queryattr = field.attname
+            else:
+                queryattr = field.accessor_name  ## changed
+
+            blank = False  ## changed
+            if hasattr(field, "blank"):  ## changed
+                blank = field.blank
+
+            default = None  ## changed
+            if hasattr(field, "default"):  ## changed
+                default = field.default
+
+            help_text = ""  ## changed
+            if hasattr(field, "help_text"):  ## changed
+                help_text = field.help_text
+
+            primary_key = False  ## changed
+            if hasattr(field, "primary_key"):  ## changed
+                primary_key = field.primary_key
+
+            unique = False  ## changed
+            if hasattr(field, "unique"):  ## changed
+                unique = field.unique
+
             if queryattr.endswith("_id"):
                 queryattr = queryattr[:-3]
 
@@ -462,13 +486,13 @@ class SerializerMetaBuilder:
                 nullable=field.null,
                 related_model=related_model,
                 query_handler=QUERY_REWRITES.get(type(field), None),
-                blank=field.blank,
-                default=field.default,
-                help_text=field.help_text,
+                blank=blank,  ## changed
+                default=default,  ## changed
+                help_text=help_text,  ## changed
                 editable=field.editable,
                 is_relation=field.is_relation,
-                primary_key=field.primary_key,
-                unique=field.unique,
+                primary_key=primary_key,  ## changed
+                unique=unique,  ## changed
                 query_param=queryattr,
             )
 
@@ -557,6 +581,7 @@ class SerializerMetaBuilder:
         assert all(isinstance(x, str) for x in cls.fields.keys()), "fields key must be a strings"
         assert isinstance(cls.filters, Iterable), "filters must be an array of strings"
         assert all(isinstance(x, str) for x in cls.filters), "filters must be an array of strings"
+        assert all(isinstance(x, str) for x in cls.preselected), "preselected must be an array of strings"
         for field in cls.fields.values():
             assert all(isinstance(x, str) for x in field), "fields value must be an array of strings"
 
@@ -605,12 +630,21 @@ class SerializerMetaBuilder:
 
                 field = cls._rewrites.get(field, field)
 
-                if field in field_list or field + "_id" in id_list or field in m2m_list:
+                if field in field_list or field + "_id" in id_list or field in m2m_list or field in o2_list:
                     continue
 
                 assert (
                     0
                 ), f"Field '{field}' not found in model '{cls.model.__name__}', available fields: {[x for x in vars(cls.model) if not x.startswith('_')]}"
+
+        for field in cls.preselected:
+            if field in field_list:
+                continue
+
+            if field + "_id" in id_list:
+                continue
+
+            assert 0, f"Preselected field '{field}' not found in model '{cls.model.__name__}'"
 
         for filter in cls.filters:
             original_filter = filter
@@ -716,6 +750,9 @@ class SerializerMetaBuilder:
 
     @classmethod
     def _prepare_fields(cls):
+        if hasattr(cls, "preselected") is False:
+            cls.preselected = ()
+
         cls._lookups: dict[str, str] = {}
         if not hasattr(cls, "filters"):
             cls.filters: list[str] = []
@@ -731,7 +768,7 @@ class SerializerMetaBuilder:
 
 class Serializer(SerializerMetaBuilder):
     _serializer_instances: dict[str, Type["Serializer"]]
-    sort_by = "pk"
+    sort_by: str = "pk"
     ttl: int | None = None
     cache_control: str | None = None
 
@@ -766,7 +803,11 @@ class Serializer(SerializerMetaBuilder):
                 only |= set([f"{key}__{x}" for x in x1])
                 selected.add(key)
 
-        qs = qs.select_related(*selected).only(*only)
+        for field in self.preselected:
+            only.add(field)
+
+        # this doesn't work, the only must include
+        # qs = qs.select_related(*selected).only(*only)
         return qs
 
     def _serialize(self, instance: models.Model) -> dict:
@@ -804,7 +845,7 @@ class Serializer(SerializerMetaBuilder):
                     data[key] = ser._instances(
                         qs.all(),
                         count,
-                        extra={query_param: getattr(instance, "pk", None)},
+                        extra={query_param + ".pk": getattr(instance, "pk", None)},
                     )
 
                 else:
@@ -826,7 +867,7 @@ class Serializer(SerializerMetaBuilder):
                         count,
                         pks=True,
                         path=path,
-                        extra={query_param: getattr(instance, "pk", None)},
+                        extra={query_param + ".pk": getattr(instance, "pk", None)},
                     )
 
         return data
@@ -936,6 +977,8 @@ class Serializer(SerializerMetaBuilder):
                     **extra,
                 },
             )
+
+        obj["results"] = obj.pop("results")
 
         return obj
 
@@ -1274,7 +1317,7 @@ class Serializer(SerializerMetaBuilder):
         exclude_filters: list[FilterOperation] = []
 
         for x in (self.request.META.get("QUERY_STRING") or "").split("&"):
-            if x.startswith("sets=") or x.startswith("sort="):
+            if x.startswith("sets=") or x.startswith("sort=") or x.startswith("limit=") or x.startswith("offset="):
                 continue
 
             if "." in x.split("=")[0]:
@@ -1452,7 +1495,7 @@ class Serializer(SerializerMetaBuilder):
                 }
             )
 
-        result = {"sets": sets, "filters": sorted([*cls.filters, *inherited_filters])}
+        result = {"filters": sorted([*cls.filters, *inherited_filters]), "sets": sets}
 
         if original_depth is None:
             return HttpResponse(json.dumps(result), status=200, headers={"Content-Type": "application/json"})
@@ -1500,7 +1543,7 @@ class Serializer(SerializerMetaBuilder):
 
     def _verify_headers(self):
         accept = self.request.headers.get("Accept", "application/json")
-        for x in ["application/json"]:
+        for x in ["application/json", "*/*", "application/*", "*/json"]:
             if x in accept:
                 return
 

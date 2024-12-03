@@ -23,16 +23,22 @@ FALSE_VALUES = ["false", "0", "no", "off", "False", "FALSE", "false", "N", "No",
 CAPYC = getattr(settings, "CAPYC", {})
 if "cache" in CAPYC and isinstance(CAPYC["cache"], dict):
     is_cache_enabled = CAPYC["cache"].get("enabled", True)
-    min_compression_size = CAPYC["cache"].get("min_kb_size", 10)
 
 else:
     is_cache_enabled = os.getenv("CAPYC_CACHE", "True") not in FALSE_VALUES
-    min_compression_size = int(os.getenv("CAPYC_MIN_COMPRESSION_SIZE", "10"))
 
+if "compression" in CAPYC and isinstance(CAPYC["compression"], dict):
+    is_compression_enabled = CAPYC["compression"].get("enabled", True)
+    min_compression_size = CAPYC["compression"].get("min_kb_size", 10)
+
+else:
+    is_compression_enabled = os.getenv("CAPYC_COMPRESSION", "True") not in FALSE_VALUES
+    min_compression_size = int(os.getenv("CAPYC_MIN_COMPRESSION_SIZE", "10"))
 
 settings = {
     "min_compression_size": min_compression_size,
     "is_cache_enabled": is_cache_enabled,
+    "is_compression_enabled": is_compression_enabled,  # not used yet
 }
 
 
@@ -127,9 +133,9 @@ def set_cache(
     elif cache_control:
         res["headers"]["Cache-Control"] = cache_control
 
-    elif ttl:
-        res["headers"]["Cache-Control"] = f"max-age={ttl}"
-        res["headers"]["Expires"] = (timezone.now() + timedelta(seconds=ttl)).isoformat()
+    # elif ttl:
+    #     res["headers"]["Cache-Control"] = f"max-age={ttl}"
+    #     res["headers"]["Expires"] = (timezone.now() + timedelta(seconds=ttl)).isoformat()
 
     else:
         res["headers"]["Cache-Control"] = "public"
