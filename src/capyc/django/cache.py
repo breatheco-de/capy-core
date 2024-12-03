@@ -3,16 +3,13 @@ import json
 import os
 import sys
 import zlib
-from collections import OrderedDict
-from datetime import timedelta
-from typing import Any
+from typing import Any, TypedDict
 
 import brotli
 import zstandard
 from django.conf import settings
 from django.core.cache import cache
-from django.http import HttpResponse, JsonResponse
-from django.utils import timezone
+from django.http import HttpResponse
 from rest_framework import status
 
 __all__ = ["set_cache", "get_cache", "delete_cache", "reset_cache", "settings"]
@@ -22,20 +19,27 @@ FALSE_VALUES = ["false", "0", "no", "off", "False", "FALSE", "false", "N", "No",
 
 CAPYC = getattr(settings, "CAPYC", {})
 if "cache" in CAPYC and isinstance(CAPYC["cache"], dict):
-    is_cache_enabled = CAPYC["cache"].get("enabled", True)
+    is_cache_enabled = bool(CAPYC["cache"].get("enabled", True))
 
 else:
     is_cache_enabled = os.getenv("CAPYC_CACHE", "True") not in FALSE_VALUES
 
 if "compression" in CAPYC and isinstance(CAPYC["compression"], dict):
-    is_compression_enabled = CAPYC["compression"].get("enabled", True)
-    min_compression_size = CAPYC["compression"].get("min_kb_size", 10)
+    is_compression_enabled = bool(CAPYC["compression"].get("enabled", True))
+    min_compression_size = int(CAPYC["compression"].get("min_kb_size", 10))
 
 else:
     is_compression_enabled = os.getenv("CAPYC_COMPRESSION", "True") not in FALSE_VALUES
     min_compression_size = int(os.getenv("CAPYC_MIN_COMPRESSION_SIZE", "10"))
 
-settings = {
+
+class Settings(TypedDict):
+    min_compression_size: int
+    is_cache_enabled: bool
+    is_compression_enabled: bool
+
+
+settings: Settings = {
     "min_compression_size": min_compression_size,
     "is_cache_enabled": is_cache_enabled,
     "is_compression_enabled": is_compression_enabled,  # not used yet
@@ -162,7 +166,13 @@ def get_cache(key: str, params: dict[str, Any], query: list[str], headers: dict[
 
 
 def delete_cache(key: str):
+    from .serializer import MODEL_CACHE
+
     cache.delete_pattern(f"{key}__*")
+
+    if key in model_cache:
+        for field in model_cache[key].fields:
+            cache.delete_pattern(f"{field}__*")
 
 
 def reset_cache():
