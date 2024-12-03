@@ -34,10 +34,10 @@ GET /api/v1/users?age<=18
 GET /api/v1/users?age=18
 ```
 
-### Not equal to
+### Insensitive equal to
 
 ```http
-GET /api/v1/users?age!=18
+GET /api/v1/users?name~=john
 ```
 
 ### In
@@ -56,7 +56,7 @@ GET /api/v1/users?age[in]=18,20,22
 
 ### Not
 
-This operator is able to negate all the supported operations previously mentioned.
+This operator is able to negate all the supported operations previously mentioned, the `!` operator must be prefixed to the operation.
 
 ```http
 GET /api/v1/users?age!=18
