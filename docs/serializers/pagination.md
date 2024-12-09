@@ -26,3 +26,16 @@ Capy Serializers supports pagination out of the box, this feature cannot be disa
     ]
 }
 ```
+
+## Settings
+
+You can configure the pagination settings in the `settings.py` file.
+
+```python
+CAPYC = {
+    "pagination": {
+        "pks": 200,  # up to 1000
+        "pages": 20,  # up to 100
+    },
+}
+```

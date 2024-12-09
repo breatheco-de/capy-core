@@ -1,6 +1,6 @@
-# Cache ttl
+# Cache TTL
 
-Capy Serializers supports set a custom time to live for the cache, you can set `ttl` attribute in the serializer to set the cache ttl, after this time the cache will be invalidated. This value is in seconds.
+Capy Serializers supports set a custom time to live for the cache, you can set `ttl` attribute in the serializer to set the cache TTL, after this time the cache will be invalidated. This value is in seconds.
 
 ## Example
 
