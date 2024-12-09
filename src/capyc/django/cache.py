@@ -166,13 +166,15 @@ def get_cache(key: str, params: dict[str, Any], query: list[str], headers: dict[
 
 
 def delete_cache(key: str):
-    from .serializer import MODEL_CACHE
+    from .serializer import FORWARD_DEPENDENCY_MAP, REVERSE_DEPENDENCY_MAP
 
     cache.delete_pattern(f"{key}__*")
 
-    if key in model_cache:
-        for field in model_cache[key].fields:
-            cache.delete_pattern(f"{field}__*")
+    for model in FORWARD_DEPENDENCY_MAP.get(key, []):
+        cache.delete_pattern(f"{model}__*")
+
+    for model in REVERSE_DEPENDENCY_MAP.get(key, []):
+        cache.delete_pattern(f"{model}__*")
 
 
 def reset_cache():

@@ -265,6 +265,8 @@ class FilterOperation(TypedDict):
 
 MODEL_CACHE: dict[str, ModelCache] = {}
 MODEL_REL_CACHE: dict[str, dict[str, FieldRelatedDescriptor]] = {}
+FORWARD_DEPENDENCY_MAP: dict[str, set[str]] = {}
+REVERSE_DEPENDENCY_MAP: dict[str, set[str]] = {}
 
 
 class ExpandSets(TypedDict):

@@ -49,4 +49,6 @@ def clean_environment(monkeypatch: pytest.MonkeyPatch) -> Generator[None, None, 
         if key not in WHITELIST:
             monkeypatch.delenv(key)
 
+    monkeypatch.setenv("ENV", "test")
+
     yield
