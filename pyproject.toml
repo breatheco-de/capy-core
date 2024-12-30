@@ -102,6 +102,7 @@ django = [
   "brotli",
   "zstandard",
 ]
+celery = ["celery"]
 pytest = ["numpy", "Pillow", "pytz"]
 
 [tool.black]

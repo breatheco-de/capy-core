@@ -1,18 +1,38 @@
+import asyncio
 import gzip
+import importlib
 import json
 import os
 import sys
 import zlib
-from typing import Any, TypedDict
+from functools import lru_cache
+from typing import Any, Type, TypedDict
 
 import brotli
 import zstandard
 from django.conf import settings
 from django.core.cache import cache
+from django.db.models import F, Q
 from django.http import HttpResponse
 from rest_framework import status
 
-__all__ = ["set_cache", "get_cache", "delete_cache", "reset_cache", "settings"]
+try:
+    import celery  # noqa: F401
+
+    CELERY_INSTALLED = True
+
+except ImportError:
+    CELERY_INSTALLED = False
+
+
+# not supported yet
+# from django.db.models import OuterRef, Subquery, Min, Max, Avg, Sum, Count, StdDev, Variance
+
+# annotate json fields
+# from django.db.models.fields.json import KT
+
+
+__all__ = ["set_cache", "get_cache", "delete_cache", "reset_cache", "settings", "Filter", "Annotate", "Aggregate"]
 
 IS_DJANGO_REDIS = hasattr(cache, "delete_pattern")
 FALSE_VALUES = ["false", "0", "no", "off", "False", "FALSE", "false", "N", "No", "NO", "Off", "OFF"]
@@ -45,8 +65,10 @@ settings: Settings = {
     "is_compression_enabled": is_compression_enabled,  # not used yet
 }
 
+type Params = tuple[tuple[Q | F, ...], dict[str, Any]]
 
-def key_builder(key: str, params: dict[str, Any], query: list[str], headers: dict[str, str]):
+
+def key_builder(serializer: str, params: Params, query: list[str], headers: dict[str, str]):
     accept = headers.get("Accept", "application/json")
     encoding = headers.get("Content-Encoding", "")
     acceptLanguage = headers.get("Accept-Language", "")
@@ -62,7 +84,20 @@ def key_builder(key: str, params: dict[str, Any], query: list[str], headers: dic
     else:
         encoding = ""
 
-    return f"{key}__{encoding}__{accept}__{acceptLanguage}__{'&'.join([f'{x}={y}' for x, y in sorted(params.items())])}__{'&'.join(sorted(query))}"
+    args = params[0]
+    kwargs = params[1]
+
+    return "__".join(
+        [
+            serializer,
+            encoding,
+            accept,
+            acceptLanguage,
+            "&".join([str(arg) for arg in args]),
+            "&".join([f"{x}={y}" for x, y in sorted(kwargs.items())]),
+            "&".join(sorted(query)),
+        ]
+    )
 
 
 def compress(value: Any, headers: dict[str, str], cache_control: str | None = None):
@@ -114,11 +149,25 @@ def compress(value: Any, headers: dict[str, str], cache_control: str | None = No
     return response
 
 
+def get_cache(serializer: str, params: Params, query: list[str], headers: dict[str, str]):
+    if settings["is_cache_enabled"] is False or headers.get("Cache-Control", "") in ["no-store", "no-cache"]:
+        return None
+
+    key = key_builder(serializer, params, query, headers)
+
+    res = cache.get(key)
+    if res is None:
+        return None
+
+    # implement other content types
+    return HttpResponse(res["content"], status=status.HTTP_200_OK, headers=res["headers"])
+
+
 def set_cache(
-    key: str,
+    serializer: str,
     value: Any,
     ttl: int | None,
-    params: dict[str, Any],
+    params: Params,
     query: list[str],
     headers: dict[str, str],
     cache_control: str | None = None,
@@ -127,7 +176,7 @@ def set_cache(
         # implement other content types
         return HttpResponse(json.dumps(value), status=status.HTTP_200_OK, headers={"Content-Type": "application/json"})
 
-    key = key_builder(key, params, query, headers)
+    key = key_builder(serializer, params, query, headers)
 
     res = compress(value, headers)
 
@@ -151,31 +200,50 @@ def set_cache(
     return HttpResponse(res["content"], status=status.HTTP_200_OK, headers=res["headers"])
 
 
-def get_cache(key: str, params: dict[str, Any], query: list[str], headers: dict[str, str]):
-    if settings["is_cache_enabled"] is False or headers.get("Cache-Control", "") in ["no-store", "no-cache"]:
-        return None
+@lru_cache(maxsize=1000)
+def has_static_handler(key: str) -> bool:
+    from .serializer import Serializer
 
-    key = key_builder(key, params, query, headers)
+    parts = key.split(".")
+    module_name = ".".join(parts[:-1])
+    serializer_name = ".".join(parts[-1:])
 
-    res = cache.get(key)
-    if res is None:
-        return None
+    module = importlib.import_module(module_name)
 
-    # implement other content types
-    return HttpResponse(res["content"], status=status.HTTP_200_OK, headers=res["headers"])
-
-
-def delete_cache(key: str):
-    from .serializer import FORWARD_DEPENDENCY_MAP, REVERSE_DEPENDENCY_MAP
-
-    cache.delete_pattern(f"{key}__*")
-
-    for model in FORWARD_DEPENDENCY_MAP.get(key, []):
-        cache.delete_pattern(f"{model}__*")
-
-    for model in REVERSE_DEPENDENCY_MAP.get(key, []):
-        cache.delete_pattern(f"{model}__*")
+    serializer_cls: Type[Serializer] = getattr(module, serializer_name)
+    return serializer_cls.revalidate is not None
 
 
-def reset_cache():
+async def delete_cache(key: str):
+    from .serializer import SERIALIZER_DEPTHS, SERIALIZER_PARENTS, SERIALIZER_REGISTRY
+
+    async def clean_node(key: str, depth: int = 0):
+        depth += 1
+
+        if depth <= SERIALIZER_DEPTHS.get(key, 0):
+            cache.delete_pattern(f"{key}*")
+            if CELERY_INSTALLED:
+                from .tasks import revalidate_cache
+
+                if has_static_handler(key):
+                    revalidate_cache.delay(key)
+
+        promises = []
+
+        for serializer in SERIALIZER_PARENTS.get(key, set()):
+            promises.append(clean_node(serializer, depth))
+
+        await asyncio.gather(*promises)
+
+    if key in SERIALIZER_REGISTRY:
+        promises = []
+        for serializer in SERIALIZER_REGISTRY[key]:
+            promises.append(clean_node(serializer))
+
+        await asyncio.gather(*promises)
+
+    await clean_node(key)
+
+
+async def reset_cache():
     cache.delete_pattern("*")

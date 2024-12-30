@@ -7,6 +7,7 @@ from typing import Optional
 import brotli
 import pytest
 import zstandard
+from asgiref.sync import async_to_sync
 from django.contrib.auth.models import Group, Permission, User
 from django.contrib.contenttypes.models import ContentType
 from django.core.cache import cache
@@ -20,16 +21,9 @@ from capyc.django.cache import reset_cache, settings
 from capyc.django.serializer import Serializer
 
 
-@pytest.fixture(autouse=True, scope="function")
+@pytest.fixture(autouse=True)
 def setup(db):
-    reset_cache()
     yield
-
-    # client = get_redis_connection("default")
-    # with Lock(client, f"capyc:test:serializers", timeout=60, blocking_timeout=60):
-    #     # assert 0
-    #     reset_cache()
-    #     yield
 
 
 @pytest.fixture
@@ -117,6 +111,7 @@ class PermissionSerializerDuplicate(Serializer):
     depth = 2
     # content_type = (ContentTypeSerializer, 'group')
     content_type = ContentTypeSerializer
+
 
 
 class GroupSerializer(Serializer):
@@ -2604,7 +2599,7 @@ class TestGetCacheNoHits:
         with django_assert_num_queries(1) as captured:
             assert_response(serializer.get(id=model.permission.id), expected)
 
-        key = f"auth.Permission____application/json__en__id={model.permission.id}__"
+        key = f"tests.django.test_serializer.PermissionSerializer____application/json__en____id={model.permission.id}__"
 
         assert cache.keys("*") == [
             key,
@@ -2646,7 +2641,9 @@ class TestGetCacheNoHits:
         with django_assert_num_queries(1) as captured:
             assert_response(serializer.get(id=model.permission.id), expected)
 
-        key = f"auth.Permission____application/json__en__id={model.permission.id}__sets=extra,ids"
+        key = (
+            f"tests.django.test_serializer.PermissionSerializer____application/json__en____id={model.permission.id}__sets=extra,ids"
+        )
 
         assert cache.keys("*") == [
             key,
@@ -2698,7 +2695,7 @@ class TestGetCacheNoHits:
         with django_assert_num_queries(2) as captured:
             assert_response(serializer.get(id=model.permission.id), expected)
 
-        key = f"auth.Permission____application/json__en__id={model.permission.id}__sets=extra,lists"
+        key = f"tests.django.test_serializer.PermissionSerializer____application/json__en____id={model.permission.id}__sets=extra,lists"
 
         assert cache.keys("*") == [
             key,
@@ -2755,7 +2752,7 @@ class TestFilterCacheNoHits:
         with django_assert_num_queries(2) as captured:
             assert_response(serializer.filter(id__in=[x.id for x in model.permission]), expected)
 
-        key = f"auth.Permission____application/json__en__id__in=[{', '.join([str(x.id) for x in model.permission])}]__"
+        key = f"tests.django.test_serializer.PermissionSerializer____application/json__en____id__in=[{', '.join([str(x.id) for x in model.permission])}]__"
 
         assert cache.keys("*") == [
             key,
@@ -2813,7 +2810,7 @@ class TestFilterCacheNoHits:
         with django_assert_num_queries(2) as captured:
             assert_response(serializer.filter(id__in=[x.id for x in model.permission]), expected)
 
-        key = f"auth.Permission____application/json__en__id__in=[{', '.join([str(x.id) for x in model.permission])}]__sets=extra,ids"
+        key = f"tests.django.test_serializer.PermissionSerializer____application/json__en____id__in=[{', '.join([str(x.id) for x in model.permission])}]__sets=extra,ids"
 
         assert cache.keys("*") == [
             key,
@@ -2882,7 +2879,7 @@ class TestFilterCacheNoHits:
             ],
         }
 
-        key = f"auth.Permission____application/json__en__id__in=[{', '.join([str(x.id) for x in model.permission])}]__sets=extra,lists"
+        key = f"tests.django.test_serializer.PermissionSerializer____application/json__en____id__in=[{', '.join([str(x.id) for x in model.permission])}]__sets=extra,lists"
 
         with django_assert_num_queries(4) as captured:
             assert_response(serializer.filter(id__in=[x.id for x in model.permission]), expected)
@@ -2924,7 +2921,7 @@ class TestGetCacheHits:
             "name": model.permission.name,
         }
 
-        key = f"auth.Permission____application/json__en__id={model.permission.id}__"
+        key = f"tests.django.test_serializer.PermissionSerializer____application/json__en____id={model.permission.id}__"
         cache.set(
             key,
             {
@@ -2976,7 +2973,9 @@ class TestGetCacheHits:
             "content_type": model.permission.content_type.id,
         }
 
-        key = f"auth.Permission____application/json__en__id={model.permission.id}__sets=extra,ids"
+        key = (
+            f"tests.django.test_serializer.PermissionSerializer____application/json__en____id={model.permission.id}__sets=extra,ids"
+        )
         cache.set(
             key,
             {
@@ -3021,7 +3020,7 @@ class TestGetCacheHits:
         serializer = PermissionSerializer(request=request)
         assert cache.keys("*") == []
 
-        key = f"auth.Permission____application/json__en__id={model.permission.id}__sets=extra,lists"
+        key = f"tests.django.test_serializer.PermissionSerializer____application/json__en____id={model.permission.id}__sets=extra,lists"
         expected = {
             "id": model.permission.id,
             "name": model.permission.name,
@@ -3105,7 +3104,7 @@ class TestFilterCacheHits:
             ],
         }
 
-        key = f"auth.Permission____application/json__en__id__in=[{', '.join([str(x.id) for x in model.permission])}]__"
+        key = f"tests.django.test_serializer.PermissionSerializer____application/json__en____id__in=[{', '.join([str(x.id) for x in model.permission])}]__"
         cache.set(
             key,
             {
@@ -3173,7 +3172,7 @@ class TestFilterCacheHits:
             ],
         }
 
-        key = f"auth.Permission____application/json__en__id__in=[{', '.join([str(x.id) for x in model.permission])}]__sets=extra,ids"
+        key = f"tests.django.test_serializer.PermissionSerializer____application/json__en____id__in=[{', '.join([str(x.id) for x in model.permission])}]__sets=extra,ids"
         cache.set(
             key,
             {
@@ -3255,7 +3254,7 @@ class TestFilterCacheHits:
             ],
         }
 
-        key = f"auth.Permission____application/json__en__id__in=[{', '.join([str(x.id) for x in model.permission])}]__sets=extra,lists"
+        key = f"tests.django.test_serializer.PermissionSerializer____application/json__en____id__in=[{', '.join([str(x.id) for x in model.permission])}]__sets=extra,lists"
         cache.set(
             key,
             {
@@ -3342,7 +3341,7 @@ class TestFilterCompressingCacheNoHits:
             ],
         }
 
-        key = f"auth.Permission____application/json__en__id__in=[{', '.join([str(x.id) for x in model.permission])}]__sets=extra,lists"
+        key = f"tests.django.test_serializer.PermissionSerializer____application/json__en____id__in=[{', '.join([str(x.id) for x in model.permission])}]__sets=extra,lists"
 
         with django_assert_num_queries(4) as captured:
             assert_response(serializer.filter(id__in=[x.id for x in model.permission]), expected, encoding=encoding)
@@ -3419,7 +3418,7 @@ class TestFilterCompressingCacheHits:
             ],
         }
 
-        key = f"auth.Permission____application/json__en__id__in=[{', '.join([str(x.id) for x in model.permission])}]__sets=extra,lists"
+        key = f"tests.django.test_serializer.PermissionSerializer____application/json__en____id__in=[{', '.join([str(x.id) for x in model.permission])}]__sets=extra,lists"
         cache.set(
             key,
             {
@@ -3472,7 +3471,7 @@ class TestGetCompressingCacheNoHits:
         serializer = PermissionSerializer(request=request)
         assert cache.keys("*") == []
 
-        key = f"auth.Permission____application/json__en__id={model.permission.id}__sets=extra,lists"
+        key = f"tests.django.test_serializer.PermissionSerializer____application/json__en____id={model.permission.id}__sets=extra,lists"
         expected = {
             "id": model.permission.id,
             "name": model.permission.name,
@@ -3531,7 +3530,7 @@ class TestGetCompressingCacheHits:
         serializer = PermissionSerializer(request=request)
         assert cache.keys("*") == []
 
-        key = f"auth.Permission____application/json__en__id={model.permission.id}__sets=extra,lists"
+        key = f"tests.django.test_serializer.PermissionSerializer____application/json__en____id={model.permission.id}__sets=extra,lists"
         expected = {
             "id": model.permission.id,
             "name": model.permission.name,

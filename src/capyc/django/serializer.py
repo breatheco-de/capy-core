@@ -2,20 +2,9 @@ import base64
 import json
 import math
 import re
-from copy import copy
 from datetime import datetime, timedelta
 from decimal import Decimal
-from typing import (
-    Any,
-    Callable,
-    Collection,
-    Iterable,
-    List,
-    Optional,
-    Type,
-    TypedDict,
-    overload,
-)
+from typing import Any, Callable, Collection, Iterable, List, Optional, Type, TypedDict
 from urllib.parse import parse_qs, urlencode, urlparse, urlunparse
 
 from adrf.requests import AsyncRequest
@@ -46,6 +35,7 @@ from django.db.models import (
     PositiveBigIntegerField,
     PositiveIntegerField,
     PositiveSmallIntegerField,
+    Q,
     QuerySet,
     SlugField,
     SmallAutoField,
@@ -200,6 +190,7 @@ NUMBER_LOOKUP = [*GENERAL_LOOKUP, "gt", "gte", "lt", "lte", "range"]
 DATE_LOOKUP = [*NUMBER_LOOKUP, "year", "month", "day", "week_day"]
 DATETIME_LOOKUP = [*DATE_LOOKUP, "year", "month", "day", "week_day", "hour", "minute", "second"]
 TIME_LOOKUP = [*NUMBER_LOOKUP, "hour", "minute", "second"]
+# JSON_LOOKUP = ["contained_by", "has_key", 'has_any_keys']
 
 
 def datetime_query(value: str, lookups: Optional[list[str]] = None) -> str:
@@ -265,8 +256,9 @@ class FilterOperation(TypedDict):
 
 MODEL_CACHE: dict[str, ModelCache] = {}
 MODEL_REL_CACHE: dict[str, dict[str, FieldRelatedDescriptor]] = {}
-FORWARD_DEPENDENCY_MAP: dict[str, set[str]] = {}
-REVERSE_DEPENDENCY_MAP: dict[str, set[str]] = {}
+SERIALIZER_PARENTS: dict[str, set[str]] = {}
+SERIALIZER_DEPTHS: dict[str, int] = {}
+SERIALIZER_REGISTRY: dict[str, set[str]] = {}
 
 
 class ExpandSets(TypedDict):
@@ -299,6 +291,52 @@ class SerializerMetaBuilder:
             return g1, set()
 
         return g1, set(g2.split(","))
+
+    @classmethod
+    def get_model_path(cls, model: Optional[models.Model] = None):
+        if model is None:
+            model = cls.model
+
+        return f"{model._meta.app_label}.{model.__name__}"
+
+    @classmethod
+    def get_serializer_path(cls, serializer: Optional[Type["Serializer"]] = None):
+        if serializer is None:
+            serializer = cls
+
+        return f"{serializer.__module__}.{serializer.__name__}"
+
+    @classmethod
+    def _populate_parents(cls, cache: ModelCache):
+        # cache.field_list = list(set(cache.field_list))
+        # cache.id_list = list(set(cache.id_list))
+
+        l = (
+            cache.many_to_many_list
+            + cache.reverse_many_to_one_list
+            + cache.reverse_one_to_one_list
+            + cache.forward_many_to_one_list
+            + cache.forward_one_to_one_list
+        )
+
+        current = cls.get_serializer_path()
+        model = cls.get_model_path()
+        if model not in SERIALIZER_REGISTRY:
+            SERIALIZER_REGISTRY[model] = set()
+
+        SERIALIZER_REGISTRY[model].add(current)
+
+        for descriptor in l:
+            field_name = cls.rewrites.get(descriptor.field_name, descriptor.field_name)
+            serializer = getattr(cls, field_name, None)
+            if serializer is None:
+                continue
+
+            key = cls.get_serializer_path(serializer)
+            if key not in SERIALIZER_PARENTS:
+                SERIALIZER_PARENTS[key] = set()
+
+            SERIALIZER_PARENTS[key].add(current)
 
     @classmethod
     def _get_related_fields(cls):
@@ -335,26 +373,26 @@ class SerializerMetaBuilder:
             if hasattr(field, "attname"):
                 queryattr = field.attname
             else:
-                queryattr = field.accessor_name  ## changed
+                queryattr = field.accessor_name
 
-            blank = False  ## changed
-            if hasattr(field, "blank"):  ## changed
+            blank = False
+            if hasattr(field, "blank"):
                 blank = field.blank
 
-            default = None  ## changed
-            if hasattr(field, "default"):  ## changed
+            default = None
+            if hasattr(field, "default"):
                 default = field.default
 
-            help_text = ""  ## changed
-            if hasattr(field, "help_text"):  ## changed
+            help_text = ""
+            if hasattr(field, "help_text"):
                 help_text = field.help_text
 
-            primary_key = False  ## changed
-            if hasattr(field, "primary_key"):  ## changed
+            primary_key = False
+            if hasattr(field, "primary_key"):
                 primary_key = field.primary_key
 
-            unique = False  ## changed
-            if hasattr(field, "unique"):  ## changed
+            unique = False
+            if hasattr(field, "unique"):
                 unique = field.unique
 
             if queryattr.endswith("_id"):
@@ -382,13 +420,13 @@ class SerializerMetaBuilder:
                 nullable=field.null,
                 related_model=related_model,
                 query_handler=QUERY_REWRITES.get(type(field), None),
-                blank=blank,  ## changed
-                default=default,  ## changed
-                help_text=help_text,  ## changed
+                blank=blank,
+                default=default,
+                help_text=help_text,
                 editable=field.editable,
                 is_relation=field.is_relation,
-                primary_key=primary_key,  ## changed
-                unique=unique,  ## changed
+                primary_key=primary_key,
+                unique=unique,
                 query_param=queryattr,
             )
 
@@ -462,6 +500,10 @@ class SerializerMetaBuilder:
         cache.reverse_one_to_one_list = list(set(cache.reverse_one_to_one_list))
         cache.forward_many_to_one_list = list(set(cache.forward_many_to_one_list))
         cache.forward_one_to_one_list = list(set(cache.forward_one_to_one_list))
+
+        cls._populate_parents(cache)
+
+        SERIALIZER_DEPTHS[cls.get_serializer_path()] = cls.depth
 
     @classmethod
     def _get_field_names(cls, l: list[FieldDescriptor | FieldRelatedDescriptor]) -> list[str]:
@@ -667,6 +709,7 @@ class Serializer(SerializerMetaBuilder):
     sort_by: str = "pk"
     ttl: int | None = None
     cache_control: str | None = None
+    revalidate: Callable[[], None] | None = None
 
     def _prefetch(self, qs: QuerySet):
         annotated = {}
@@ -1175,8 +1218,6 @@ class Serializer(SerializerMetaBuilder):
         return ser._validate_child_filter(".".join(rest), parents + [forward])
 
     def _query_filter(self, qs: QuerySet) -> QuerySet:
-        from django.db.models import Q
-
         def build_filter(filters: list[FilterOperation]):
             named = {}
             unnamed = []
@@ -1400,10 +1441,7 @@ class Serializer(SerializerMetaBuilder):
 
         return result
 
-    def get_model_path(self):
-        return f"{self.model._meta.app_label}.{self.model.__name__}"
-
-    def filter(self, **kwargs: Any) -> List[dict[str, Any]] | dict[str, Any]:
+    def filter(self, *args: Any, **kwargs: Any) -> List[dict[str, Any]] | dict[str, Any]:
         self._verify_headers()
 
         if "help" in self.request.META.get("QUERY_STRING"):
@@ -1412,8 +1450,8 @@ class Serializer(SerializerMetaBuilder):
                     return self.help()
 
         cache = get_cache(
-            key=self.get_model_path(),
-            params=kwargs,
+            serializer=self.get_serializer_path(),
+            params=(args, kwargs),
             query=self.request.META.get("QUERY_STRING").split("&"),
             headers=self.request.headers,
         )
@@ -1421,23 +1459,23 @@ class Serializer(SerializerMetaBuilder):
             return cache
 
         self._set_fields()
-        qs = self.model.objects.filter(**kwargs).order_by(self.sort_by)
+        qs = self.model.objects.filter(*args, **kwargs).order_by(self.sort_by)
         qs = self._query_filter(qs)
         qs = self._prefetch(qs)
 
         return set_cache(
-            key=self.get_model_path(),
+            serializer=self.get_serializer_path(),
             value=self._wraps_pagination(qs),
             ttl=self.ttl,
-            params=kwargs,
+            params=(args, kwargs),
             query=self.request.META.get("QUERY_STRING").split("&"),
             headers=self.request.headers,
             cache_control=self.cache_control,
         )
 
     @sync_to_async
-    def afilter(self, **kwargs: Any) -> List[dict[str, Any]]:
-        return self.filter(**kwargs)
+    def afilter(self, *args: Any, **kwargs: Any) -> List[dict[str, Any]]:
+        return self.filter(*args, **kwargs)
 
     def _verify_headers(self):
         accept = self.request.headers.get("Accept", "application/json")
@@ -1447,7 +1485,7 @@ class Serializer(SerializerMetaBuilder):
 
         raise ValidationException("Accept header must be application/json")
 
-    def get(self, **kwargs: Any) -> dict[str, Any] | None:
+    def get(self, *args: Any, **kwargs: Any) -> dict[str, Any] | None:
         self._verify_headers()
 
         if "help" in self.request.META.get("QUERY_STRING"):
@@ -1456,8 +1494,8 @@ class Serializer(SerializerMetaBuilder):
                     return self.help()
 
         cache = get_cache(
-            key=self.get_model_path(),
-            params=kwargs,
+            serializer=self.get_serializer_path(),
+            params=(args, kwargs),
             query=self.request.META.get("QUERY_STRING").split("&"),
             headers=self.request.headers,
         )
@@ -1465,7 +1503,7 @@ class Serializer(SerializerMetaBuilder):
             return cache
 
         self._set_fields()
-        qs = self.model.objects.filter(**kwargs).order_by(self.sort_by)
+        qs = self.model.objects.filter(*args, **kwargs).order_by(self.sort_by)
         qs = self._query_filter(qs)
         qs = self._prefetch(qs)
         qs = qs.first()
@@ -1473,18 +1511,18 @@ class Serializer(SerializerMetaBuilder):
             return None
 
         return set_cache(
-            key=self.get_model_path(),
+            serializer=self.get_serializer_path(),
             value=self._serialize(qs),
             ttl=self.ttl,
-            params=kwargs,
+            params=(args, kwargs),
             query=self.request.META.get("QUERY_STRING").split("&"),
             headers=self.request.headers,
             cache_control=self.cache_control,
         )
 
     @sync_to_async
-    def aget(self, **kwargs: Any) -> dict[str, Any] | None:
-        return self.get(**kwargs)
+    def aget(self, *args: Any, **kwargs: Any) -> dict[str, Any] | None:
+        return self.get(*args, **kwargs)
 
     def _instances(
         self,

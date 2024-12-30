@@ -14,3 +14,30 @@ class C:
     def __init__(self, *args: tuple, **kwargs: dict):
         self.args = args
         self.kwargs = kwargs
+
+
+class Filter(C):
+    """
+    Represents a filter call.
+    """
+
+    priority = 2
+    pass
+
+
+class Annotate(C):
+    """
+    Represents an annotate call.
+    """
+
+    priority = 1
+    pass
+
+
+class Aggregate(C):
+    """
+    Represents an aggregate call.
+    """
+
+    priority = 0
+    pass
