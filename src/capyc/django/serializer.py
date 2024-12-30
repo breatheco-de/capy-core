@@ -304,6 +304,9 @@ class SerializerMetaBuilder:
         if serializer is None:
             serializer = cls
 
+        if hasattr(serializer, "__class__"):
+            serializer = serializer.__class__
+
         return f"{serializer.__module__}.{serializer.__name__}"
 
     @classmethod
